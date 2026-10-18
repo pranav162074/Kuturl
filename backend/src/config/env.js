@@ -10,7 +10,7 @@ const schema = z.object({
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
   // The public address short links are built on, for example https://kuturl.onrender.com
-  BASE_URL: z.string().url().default('http://localhost:3000'),
+  PUBLIC_URL: z.string().url().default('http://localhost:3000'),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
 });
@@ -33,7 +33,7 @@ export default {
   isTest: values.NODE_ENV === 'test',
   port: values.PORT,
   logLevel: values.LOG_LEVEL,
-  baseUrl: values.BASE_URL.replace(/\/+$/, ''), // no trailing slash
+  baseUrl: values.PUBLIC_URL.replace(/\/+$/, ''), // no trailing slash
   databaseUrl: values.DATABASE_URL,
   redisUrl: values.REDIS_URL,
 };
