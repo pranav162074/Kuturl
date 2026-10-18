@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment variables (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Build output and logs
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local scratch space
+scratch/
