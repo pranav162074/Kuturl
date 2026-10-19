@@ -8,6 +8,6 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 15000,
     hookTimeout: 30000,
-    env: { NODE_ENV: 'test' },
+    env: { NODE_ENV: 'test', CODE_SECRET: 'test-code-secret-not-used-anywhere-else' },
   },
 });

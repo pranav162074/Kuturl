@@ -13,6 +13,7 @@ const schema = z.object({
   PUBLIC_URL: z.string().url().default('http://localhost:3000'),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
+  CODE_SECRET: z.string().min(16, 'must be at least 16 characters'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -36,4 +37,5 @@ export default {
   baseUrl: values.PUBLIC_URL.replace(/\/+$/, ''), // no trailing slash
   databaseUrl: values.DATABASE_URL,
   redisUrl: values.REDIS_URL,
+  codeSecret: values.CODE_SECRET,
 };
