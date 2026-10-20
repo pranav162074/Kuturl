@@ -1,15 +1,9 @@
 import express from 'express';
 import { query } from '../config/db.js';
 import redis from '../config/redis.js';
+import { withTimeout } from '../utils/timeout.js';
 
 const router = express.Router();
-
-// A hung dependency must not hang the health check, so every probe has a deadline
-const withTimeout = (promise, ms) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms)),
-  ]);
 
 const probe = async (check) => {
   try {
