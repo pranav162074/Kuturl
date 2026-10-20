@@ -30,3 +30,12 @@ export const findActiveApiKeyByHash = async (keyHash, db = { query }) => {
   );
   return toApiKey(rows[0]);
 };
+
+// Revoking twice is harmless, and the original revocation time is kept
+export const revokeApiKey = async (id, db = { query }) => {
+  const { rowCount } = await db.query(
+    `UPDATE api_keys SET revoked_at = COALESCE(revoked_at, now()) WHERE id = $1`,
+    [id]
+  );
+  return rowCount > 0;
+};
