@@ -1,5 +1,5 @@
 import { findLinkByCode } from '../db/links.js';
-import { getEntry, setEntry, entryFromLink } from './linkCache.js';
+import { getEntry, fillEntry, entryFromLink } from './linkCache.js';
 
 // Turns a cache entry into a decision. Expiry is compared with the clock on every call: a
 // cache TTL only has one-second granularity and can lag, so it is never the source of truth.
@@ -21,7 +21,7 @@ export const resolveCode = async (code, now = Date.now()) => {
     entry = entryFromLink(await findLinkByCode(code));
     // "Does not exist" is cached too, so scanning random codes can't push every request
     // through to the database
-    await setEntry(code, entry, now);
+    await fillEntry(code, entry, now);
   }
 
   return { ...decide(entry, now), source };

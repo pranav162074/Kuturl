@@ -22,15 +22,21 @@ export const resetBreaker = () => {
   skipCacheUntil = 0;
 };
 
-// Runs a Redis command and never throws: a cache problem must not break a redirect.
+// Runs a Redis command and never throws: a cache problem must not break a request.
 // It returns null when the cache is skipped or fails.
-const guarded = async (command) => {
-  if (Date.now() < skipCacheUntil) return null;
+// force: used when a link changes. Skipping that write would leave a stale entry behind, so it
+// ignores the breaker and always tries.
+const guarded = async (command, { force = false } = {}) => {
+  if (!force && Date.now() < skipCacheUntil) return null;
   try {
     return await withTimeout(command(), COMMAND_TIMEOUT_MS);
   } catch (error) {
     skipCacheUntil = Date.now() + BREAKER_MS;
-    logger.warn({ err: error }, 'Cache unavailable, reading from Postgres for a few seconds');
+    if (force) {
+      logger.error({ err: error }, 'Could not update the cache, an old entry may live until its TTL');
+    } else {
+      logger.warn({ err: error }, 'Cache unavailable, reading from Postgres for a few seconds');
+    }
     return null;
   }
 };
@@ -69,11 +75,23 @@ const parse = (raw) => {
 
 export const getEntry = async (code) => {
   const raw = await guarded(() => redis.get(keyFor(code)));
-  return raw ? parse(raw) : null;
+  if (!raw) return null;
+
+  const entry = parse(raw);
+  if (!entry) {
+    // Not something we wrote. Remove it, so the fill that follows (which never overwrites) can replace it
+    await guarded(() => redis.del(keyFor(code)));
+  }
+  return entry;
 };
 
-export const setEntry = (code, entry, now = Date.now()) =>
-  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', ttlFor(entry, now)));
+// Used after a cache miss. NX means "only if the key does not exist": if the owner changed
+// the link while we were reading Postgres, their newer entry must win over our older copy.
+export const fillEntry = (code, entry, now = Date.now()) =>
+  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', ttlFor(entry, now), 'NX'));
 
-// For later branches: changing, disabling or creating a link clears its cached entry
-export const deleteEntry = (code) => guarded(() => redis.del(keyFor(code)));
+// Used when a link changes: overwrites whatever is cached with the new state
+export const setEntry = (code, entry, now = Date.now()) =>
+  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', ttlFor(entry, now)), { force: true });
+
+export const deleteEntry = (code) => guarded(() => redis.del(keyFor(code)), { force: true });

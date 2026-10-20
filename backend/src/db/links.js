@@ -45,3 +45,55 @@ export const findLinkByCode = async (code, db = { query }) => {
   const { rows } = await db.query(`SELECT * FROM links WHERE code = $1`, [code]);
   return toLink(rows[0]);
 };
+
+// A link that belongs to someone else is indistinguishable from one that doesn't exist
+export const findOwnedLink = async (code, apiKeyId, db = { query }) => {
+  const { rows } = await db.query(`SELECT * FROM links WHERE code = $1 AND api_key_id = $2`, [code, apiKeyId]);
+  return toLink(rows[0]);
+};
+
+// Keyset pagination: "links older than this id". Ids only grow, and the index on
+// (api_key_id, id DESC) already stores them in that order, so every page costs the same.
+// The SQL is built from fixed fragments plus numbered placeholders, never from user input.
+export const listLinksByOwner = async (apiKeyId, { limit, cursor }, db = { query }) => {
+  const params = [apiKeyId];
+  let where = 'api_key_id = $1';
+  if (cursor) {
+    params.push(cursor);
+    where += ` AND id < $${params.length}`;
+  }
+  params.push(limit + 1); // one extra row tells us whether another page exists
+
+  const { rows } = await db.query(
+    `SELECT * FROM links WHERE ${where} ORDER BY id DESC LIMIT $${params.length}`,
+    params
+  );
+  return { links: rows.slice(0, limit).map(toLink), hasMore: rows.length > limit };
+};
+
+// changes may contain: disabled (boolean) and expiresAt (a Date, or null to remove it)
+export const updateOwnedLink = async (code, apiKeyId, changes, db = { query }) => {
+  const sets = [];
+  const params = [code, apiKeyId];
+
+  if ('disabled' in changes) {
+    // COALESCE keeps the original time if the link was already disabled
+    sets.push(changes.disabled ? 'disabled_at = COALESCE(disabled_at, now())' : 'disabled_at = NULL');
+  }
+  if ('expiresAt' in changes) {
+    params.push(changes.expiresAt);
+    sets.push(`expires_at = $${params.length}`);
+  }
+  if (sets.length === 0) return findOwnedLink(code, apiKeyId, db);
+
+  const { rows } = await db.query(
+    `UPDATE links SET ${sets.join(', ')} WHERE code = $1 AND api_key_id = $2 RETURNING *`,
+    params
+  );
+  return toLink(rows[0]);
+};
+
+export const deleteOwnedLink = async (code, apiKeyId, db = { query }) => {
+  const { rowCount } = await db.query(`DELETE FROM links WHERE code = $1 AND api_key_id = $2`, [code, apiKeyId]);
+  return rowCount > 0;
+};

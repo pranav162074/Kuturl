@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import env from '../config/env.js';
 import { validateLongUrl } from './urlSafety.js';
+import codes from '../services/codes.js';
 
 const ownHost = new URL(env.baseUrl).hostname;
 const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
@@ -40,4 +41,32 @@ export const createApiKeySchema = z.strictObject({
     .trim()
     .min(1, 'name is required')
     .max(100, 'name must be at most 100 characters'),
+});
+
+// Disable or re-enable a link, or change or remove its expiry (null removes it).
+// The destination URL is deliberately not editable: swapping the target of a link people
+// already trust is the classic phishing move, so a new destination means a new link.
+export const updateLinkSchema = z
+  .strictObject({
+    disabled: z.boolean({ error: 'disabled must be true or false' }).optional(),
+    expiresAt: expiresAtSchema.nullable().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, { error: 'Provide disabled or expiresAt' });
+
+// The cursor handed out by the list endpoint is the next link's id run through the same
+// scrambler as short codes. Raw ids would reveal how many links exist across all owners.
+export const listLinksQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z
+    .string()
+    .regex(/^[0-9A-Za-z]{7}$/, 'cursor is not valid')
+    .transform((value, ctx) => {
+      try {
+        return codes.decode(value).toString();
+      } catch {
+        ctx.issues.push({ code: 'custom', message: 'cursor is not valid', input: value });
+        return z.NEVER;
+      }
+    })
+    .optional(),
 });
