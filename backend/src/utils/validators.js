@@ -2,6 +2,7 @@ import { z } from 'zod';
 import env from '../config/env.js';
 import { validateLongUrl } from './urlSafety.js';
 import codes from '../services/codes.js';
+import { isReservedAlias } from './reservedAliases.js';
 
 const ownHost = new URL(env.baseUrl).hostname;
 const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
@@ -28,10 +29,21 @@ const expiresAtSchema = z.iso
     error: 'expiresAt must be within the next 10 years',
   });
 
+// Checks run in this order, and the first failing one is the message the caller sees.
+// Nothing is trimmed or changed: an alias is an identifier, so what you type is what you get.
+export const aliasSchema = z
+  .string({ error: 'alias must be text' })
+  .min(3, 'alias must be at least 3 characters')
+  .max(32, 'alias must be at most 32 characters')
+  .regex(/^[A-Za-z0-9_-]*$/, 'alias may only contain letters, numbers, hyphens and underscores')
+  .regex(/^[A-Za-z0-9].*[A-Za-z0-9]$/, 'alias must start and end with a letter or number')
+  .refine((value) => !isReservedAlias(value), { error: 'That alias is reserved, please choose another' });
+
 // strictObject rejects fields it doesn't know, so a typo like "expires_at" is an error
 // instead of being silently ignored and creating a link that never expires
 export const createLinkSchema = z.strictObject({
   url: longUrlSchema,
+  alias: aliasSchema.optional(),
   expiresAt: expiresAtSchema.optional(),
 });
 

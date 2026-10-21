@@ -15,10 +15,21 @@ const MAX_ATTEMPTS = 5;
 
 export const toShortUrl = (code) => `${env.baseUrl}/${code}`;
 
-// The code comes from the id, and the scramble can never produce the same code twice. A
-// collision is still possible once custom aliases exist (someone may pick a word that equals
-// a code we would generate later), so a taken code just means "take the next id and retry".
-export const createLink = async ({ apiKeyId, longUrl, expiresAt }) => {
+// A chosen alias gets exactly one attempt: if it is taken, the caller has to choose another,
+// and the unique indexes (not a check-then-insert) decide who won when requests race.
+// Any cached "this code does not exist" answer for it must go, otherwise someone who opened
+// the link a moment before it existed would keep getting a 404. The entry is overwritten
+// and not deleted, and a late cache fill cannot undo it, because fills never overwrite.
+const createWithAlias = async ({ apiKeyId, longUrl, expiresAt, alias }) => {
+  const id = await reserveLinkId();
+  const link = await insertLink({ id, code: alias, longUrl, apiKeyId, expiresAt, isCustom: true });
+  await setEntry(alias, entryFromLink(link));
+  return link;
+};
+
+// A generated code comes from the id, and the scramble can never produce the same code twice.
+// It can still collide with an alias somebody chose earlier, in which case the next id is tried.
+const createGenerated = async ({ apiKeyId, longUrl, expiresAt }) => {
   for (let attempt = 1; ; attempt += 1) {
     const id = await reserveLinkId();
     try {
@@ -28,6 +39,8 @@ export const createLink = async ({ apiKeyId, longUrl, expiresAt }) => {
     }
   }
 };
+
+export const createLink = (input) => (input.alias ? createWithAlias(input) : createGenerated(input));
 
 export const getLink = (code, apiKeyId) => findOwnedLink(code, apiKeyId);
 
