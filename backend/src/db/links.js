@@ -1,6 +1,8 @@
 import { query } from '../config/db.js';
 import { CodeTakenError } from './errors.js';
 
+// Both indexes mean "that code is taken": the exact one, and the case-insensitive one for aliases
+const CODE_CONFLICTS = new Set(['links_code_key', 'links_custom_code_lower_idx']);
 // BIGINT columns come back from pg as strings, because JavaScript numbers lose precision
 // above 2^53. Ids stay strings all the way through the app for that reason.
 const toLink = (row) =>
@@ -34,7 +36,7 @@ export const insertLink = async (link, db = { query }) => {
   } catch (error) {
     // 23505 is Postgres's "unique violation". The database is the judge of whether a
     // code is free, which is the only check that stays correct under concurrent requests.
-    if (error.code === '23505' && error.constraint === 'links_code_key') {
+    if (error.code === '23505' && CODE_CONFLICTS.has(error.constraint)) {
       throw new CodeTakenError(link.code);
     }
     throw error;

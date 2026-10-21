@@ -1,6 +1,7 @@
 import { createLink, getLink, listLinks, changeLink, removeLink, toShortUrl } from '../services/links.js';
 import { isValidCodeShape } from '../utils/codeFormat.js';
 import codes from '../services/codes.js';
+import { CodeTakenError } from '../db/errors.js';
 
 // What the create endpoint returns
 export const toLinkResponse = (link) => ({
@@ -30,11 +31,19 @@ const notFound = (res) => res.status(404).json({ error: 'not_found', message: 'L
 
 // @route POST /api/v1/links
 export const createLinkHandler = async (req, res) => {
-  const link = await createLink({
-    apiKeyId: req.apiKey.id,
-    longUrl: req.body.url,
-    expiresAt: req.body.expiresAt,
-  });
+  const { url, alias, expiresAt } = req.body;
+
+  let link;
+  try {
+    link = await createLink({ apiKeyId: req.apiKey.id, longUrl: url, alias, expiresAt });
+  } catch (error) {
+    // Only a chosen alias can be "taken" from the caller's point of view.
+    // Generated codes retry on their own, so they never reach this branch.
+    if (alias && error instanceof CodeTakenError) {
+      return res.status(409).json({ error: 'alias_taken', message: 'That alias is already taken' });
+    }
+    throw error;
+  }
 
   res.status(201).json(toLinkResponse(link));
 };
