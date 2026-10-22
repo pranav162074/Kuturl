@@ -1,5 +1,6 @@
 import express from 'express';
 import requireApiKey from '../middleware/auth.js';
+import rateLimit from '../middleware/rateLimit.js';
 import validate, { validateQuery } from '../middleware/validate.js';
 import {
   createLinkHandler,
@@ -12,11 +13,10 @@ import { createLinkSchema, updateLinkSchema, listLinksQuerySchema } from '../uti
 
 const router = express.Router();
 
-// Authentication comes first for every route, so someone without a key can't probe
-// the validation rules or find out which codes exist
 router.use(requireApiKey);
+router.use(rateLimit('apiKey', { scope: 'key' }));
 
-router.post('/', validate(createLinkSchema), createLinkHandler);
+router.post('/', rateLimit('linkCreation', { scope: 'key' }), validate(createLinkSchema), createLinkHandler);
 router.get('/', validateQuery(listLinksQuerySchema), listLinksHandler);
 router.get('/:code', getLinkHandler);
 router.patch('/:code', validate(updateLinkSchema), updateLinkHandler);

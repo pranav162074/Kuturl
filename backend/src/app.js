@@ -8,6 +8,7 @@ import healthRoutes from './routes/healthRoutes.js';
 import keysRoutes from './routes/keysRoutes.js';
 import linksRoutes from './routes/linksRoutes.js';
 import redirectRoutes from './routes/redirectRoutes.js';
+import rateLimit from './middleware/rateLimit.js';
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use(cors());
 app.use(express.json({ limit: '100kb' })); // no endpoint needs a large body
 
 app.use(healthRoutes);
+app.use('/api/v1', rateLimit('apiIp', { scope: 'ip' }));
 app.use('/api/v1/keys', keysRoutes);
 app.use('/api/v1/links', linksRoutes);
 app.use(redirectRoutes);
