@@ -44,7 +44,7 @@ const isPrivateIPv4 = ([a, b, c]) =>
   a >= 224; // multicast and reserved, including 255.255.255.255
 
 // Turns "2001:db8::1" into eight numbers. Returns null if the text is not valid IPv6.
-const parseIPv6 = (text) => {
+export const parseIPv6 = (text) => {
   const halves = text.split('::');
   if (halves.length > 2) return null;
 

@@ -14,6 +14,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   CODE_SECRET: z.string().min(16, 'must be at least 16 characters'),
+  RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -38,4 +39,5 @@ export default {
   databaseUrl: values.DATABASE_URL,
   redisUrl: values.REDIS_URL,
   codeSecret: values.CODE_SECRET,
+  rateLimitEnabled: values.RATE_LIMIT_ENABLED === 'true',
 };
