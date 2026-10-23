@@ -1,5 +1,6 @@
 import { isValidCodeShape } from '../utils/codeFormat.js';
 import { resolveCode } from '../services/redirect.js';
+import { recordClick } from '../services/clickEvents.js';
 
 const page = (title, message) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
@@ -13,6 +14,8 @@ const fail = (req, res, status, error, title, message) => {
   if (req.accepts(['json', 'html']) === 'html') return res.type('html').send(page(title, message));
   return res.json({ error, message });
 };
+
+const isPrefetch = (req) => /prefetch|prerender/i.test(req.get('sec-purpose') ?? req.get('purpose') ?? '');
 
 // @route GET /:code
 export const redirectToLink = async (req, res) => {
@@ -28,7 +31,12 @@ export const redirectToLink = async (req, res) => {
   const result = await resolveCode(code);
   res.set('X-Cache', result.source === 'cache' ? 'HIT' : 'MISS');
 
-  if (result.status === 'redirect') return res.redirect(302, result.url);
+  if (result.status === 'redirect') {
+    if (req.method === 'GET' && !isPrefetch(req)) {
+      recordClick({ code, userAgent: req.get('user-agent'), referer: req.get('referer') });
+    }
+    return res.redirect(302, result.url);
+  }
 
   if (result.status === 'gone') {
     return result.reason === 'expired'
