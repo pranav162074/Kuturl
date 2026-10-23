@@ -4,12 +4,27 @@ import logger from './config/logger.js';
 import app from './app.js';
 import { closePool } from './config/db.js';
 import redis from './config/redis.js';
+import { deleteExpiredIdempotencyKeys } from './db/idempotencyKeys.js';
 
 const server = http.createServer(app);
 
 server.listen(env.port, () => {
   logger.info({ port: env.port, env: env.nodeEnv }, 'Kuturl is listening');
 });
+
+const IDEMPOTENCY_CLEANUP_MS = 60 * 60 * 1000;
+
+const cleanupIdempotencyKeys = async () => {
+  try {
+    const deleted = await deleteExpiredIdempotencyKeys();
+    if (deleted > 0) logger.info({ deleted }, 'Removed expired idempotency keys');
+  } catch (error) {
+    logger.warn({ err: error }, 'Could not remove expired idempotency keys');
+  }
+};
+
+const idempotencyCleanup = setInterval(cleanupIdempotencyKeys, IDEMPOTENCY_CLEANUP_MS);
+idempotencyCleanup.unref();
 
 // On a deploy or a stop signal: stop taking new connections, let in-flight requests finish,
 // then close the database and Redis. A timer forces the exit if something refuses to finish.
@@ -19,6 +34,7 @@ const shutdown = (signal) => {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, 'Shutting down');
+  clearInterval(idempotencyCleanup);
 
   const force = setTimeout(() => {
     logger.error('Shutdown timed out, forcing exit');
