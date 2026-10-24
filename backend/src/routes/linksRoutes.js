@@ -10,7 +10,20 @@ import {
   updateLinkHandler,
   deleteLinkHandler,
 } from '../controllers/linksController.js';
-import { createLinkSchema, updateLinkSchema, listLinksQuerySchema } from '../utils/validators.js';
+import {
+  statsSummaryHandler,
+  statsSeriesHandler,
+  statsReferrersHandler,
+  statsDevicesHandler,
+} from '../controllers/statsController.js';
+import {
+  createLinkSchema,
+  updateLinkSchema,
+  listLinksQuerySchema,
+  statsSeriesQuerySchema,
+  statsReferrersQuerySchema,
+  statsDevicesQuerySchema,
+} from '../utils/validators.js';
 
 const router = express.Router();
 
@@ -26,6 +39,10 @@ router.post(
 );
 router.get('/', validateQuery(listLinksQuerySchema), listLinksHandler);
 router.get('/:code', getLinkHandler);
+router.get('/:code/stats', statsSummaryHandler);
+router.get('/:code/stats/timeseries', validateQuery(statsSeriesQuerySchema), statsSeriesHandler);
+router.get('/:code/stats/referrers', validateQuery(statsReferrersQuerySchema), statsReferrersHandler);
+router.get('/:code/stats/devices', validateQuery(statsDevicesQuerySchema), statsDevicesHandler);
 router.patch('/:code', validate(updateLinkSchema), updateLinkHandler);
 router.delete('/:code', deleteLinkHandler);
 
