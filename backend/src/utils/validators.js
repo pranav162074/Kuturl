@@ -82,3 +82,65 @@ export const listLinksQuerySchema = z.object({
     })
     .optional(),
 });
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const STEP_MS = { hour: HOUR_MS, day: DAY_MS };
+const MAX_BUCKETS = { hour: 744, day: 366 };
+const DEFAULT_BUCKETS = { hour: 24, day: 30 };
+const MAX_BREAKDOWN_DAYS = 186;
+const DEFAULT_BREAKDOWN_DAYS = 30;
+
+const statsDate = (name) =>
+  z.iso
+    .datetime({ offset: true, error: `${name} must be an ISO 8601 date-time, for example 2027-01-31T12:00:00Z` })
+    .transform((value) => new Date(value));
+
+const floorTo = (ms, step) => Math.floor(ms / step) * step;
+const ceilTo = (ms, step) => Math.ceil(ms / step) * step;
+
+const rejectRange = (ctx, message) => {
+  ctx.issues.push({ code: 'custom', message, input: undefined });
+  return z.NEVER;
+};
+
+export const statsSeriesQuerySchema = z
+  .strictObject({
+    interval: z.enum(['hour', 'day'], { error: 'interval must be hour or day' }).default('day'),
+    from: statsDate('from').optional(),
+    to: statsDate('to').optional(),
+  })
+  .transform(({ interval, from, to }, ctx) => {
+    const step = STEP_MS[interval];
+    const end = ceilTo((to ?? new Date()).getTime() + (to ? 0 : 1), step);
+    const start = from ? floorTo(from.getTime(), step) : end - DEFAULT_BUCKETS[interval] * step;
+
+    if (start >= end) return rejectRange(ctx, 'from must be before to');
+    if ((end - start) / step > MAX_BUCKETS[interval]) {
+      return rejectRange(ctx, `At most ${MAX_BUCKETS[interval]} ${interval}s can be requested at once`);
+    }
+    return { interval, from: new Date(start), to: new Date(end) };
+  });
+
+const breakdownRange = ({ from, to, ...rest }, ctx) => {
+  const end = to ?? new Date();
+  const start = from ?? new Date(end.getTime() - DEFAULT_BREAKDOWN_DAYS * DAY_MS);
+
+  if (start >= end) return rejectRange(ctx, 'from must be before to');
+  if (end - start > MAX_BREAKDOWN_DAYS * DAY_MS) {
+    return rejectRange(ctx, `The range can be at most ${MAX_BREAKDOWN_DAYS} days`);
+  }
+  return { ...rest, from: start, to: end };
+};
+
+export const statsDevicesQuerySchema = z
+  .strictObject({ from: statsDate('from').optional(), to: statsDate('to').optional() })
+  .transform(breakdownRange);
+
+export const statsReferrersQuerySchema = z
+  .strictObject({
+    from: statsDate('from').optional(),
+    to: statsDate('to').optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
+  })
+  .transform(breakdownRange);
