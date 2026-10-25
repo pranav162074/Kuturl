@@ -24,6 +24,12 @@ export const redirects = new client.Counter({
   registers: [registry],
 });
 
+export const coalescedLookups = new client.Counter({
+  name: 'kuturl_redirect_coalesced_lookups_total',
+  help: 'Cache misses that waited for a database lookup already in flight instead of starting their own',
+  registers: [registry],
+});
+
 export const cacheErrors = new client.Counter({
   name: 'kuturl_cache_errors_total',
   help: 'Redis cache commands that failed or timed out',

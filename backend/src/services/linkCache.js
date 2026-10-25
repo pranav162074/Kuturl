@@ -61,6 +61,10 @@ export const ttlFor = (entry, now = Date.now()) => {
   return Math.min(TTL_SECONDS.active, remaining); // never outlive the link itself
 };
 
+export const JITTER_RATIO = 0.1;
+
+export const jitter = (ttl, random = Math.random) => Math.max(1, ttl - Math.floor(ttl * JITTER_RATIO * random()));
+
 const STATES = new Set(['active', 'missing', 'disabled']);
 
 // Anything that does not look like an entry we wrote is treated as a miss
@@ -90,10 +94,10 @@ export const getEntry = async (code) => {
 // Used after a cache miss. NX means "only if the key does not exist": if the owner changed
 // the link while we were reading Postgres, their newer entry must win over our older copy.
 export const fillEntry = (code, entry, now = Date.now()) =>
-  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', ttlFor(entry, now), 'NX'));
+  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', jitter(ttlFor(entry, now)), 'NX'));
 
 // Used when a link changes: overwrites whatever is cached with the new state
 export const setEntry = (code, entry, now = Date.now()) =>
-  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', ttlFor(entry, now)), { force: true });
+  guarded(() => redis.set(keyFor(code), JSON.stringify(entry), 'EX', jitter(ttlFor(entry, now))), { force: true });
 
 export const deleteEntry = (code) => guarded(() => redis.del(keyFor(code)), { force: true });
