@@ -4,6 +4,7 @@ import logger from '../config/logger.js';
 import { recordClicks, ensureClickPartition, dropOldClickPartitions } from '../db/clicks.js';
 import { DEVICES } from '../utils/device.js';
 import { isValidCodeShape } from '../utils/codeFormat.js';
+import { workerBatches, workerEvents, workerBatchDuration } from '../config/metrics.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -69,7 +70,11 @@ export const createClickWorker = ({ redis, consumer = `${os.hostname()}-${proces
       .xdel(analytics.streamKey, ...ids)
       .exec();
 
-    return { read: entries.length, recorded, skipped: entries.length - events.length };
+    const skipped = entries.length - events.length;
+    workerEvents.inc({ outcome: 'recorded' }, recorded);
+    workerEvents.inc({ outcome: 'ignored' }, events.length - recorded);
+    workerEvents.inc({ outcome: 'skipped' }, skipped);
+    return { read: entries.length, recorded, skipped };
   };
 
   const claimAbandoned = async () => {
@@ -92,10 +97,26 @@ export const createClickWorker = ({ redis, consumer = `${os.hostname()}-${proces
     return result ? result[0][1] : [];
   };
 
-  const runOnce = async ({ blockMs = 0 } = {}) => {
+  const fetchBatch = async (blockMs) => {
     const abandoned = await claimAbandoned();
-    if (abandoned.length > 0) return handle(abandoned);
-    return handle(await readNew(blockMs));
+    return abandoned.length > 0 ? abandoned : readNew(blockMs);
+  };
+
+  const runOnce = async ({ blockMs = 0 } = {}) => {
+    const entries = await fetchBatch(blockMs);
+    if (entries.length === 0) return handle(entries);
+
+    const stop = workerBatchDuration.startTimer();
+    try {
+      const result = await handle(entries);
+      workerBatches.inc({ outcome: 'ok' });
+      return result;
+    } catch (error) {
+      workerBatches.inc({ outcome: 'failed' });
+      throw error;
+    } finally {
+      stop();
+    }
   };
 
   const maintain = async () => {

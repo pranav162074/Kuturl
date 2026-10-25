@@ -1,6 +1,7 @@
 import { isValidCodeShape } from '../utils/codeFormat.js';
 import { resolveCode } from '../services/redirect.js';
 import { recordClick } from '../services/clickEvents.js';
+import { redirects } from '../config/metrics.js';
 
 const page = (title, message) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
@@ -25,11 +26,13 @@ export const redirectToLink = async (req, res) => {
 
   const { code } = req.params;
   if (!isValidCodeShape(code)) {
+    redirects.inc({ outcome: 'not_found', cache: 'skipped' });
     return fail(req, res, 404, 'not_found', 'Link not found', 'This short link does not exist.');
   }
 
   const result = await resolveCode(code);
   res.set('X-Cache', result.source === 'cache' ? 'HIT' : 'MISS');
+  redirects.inc({ outcome: result.status, cache: result.source === 'cache' ? 'hit' : 'miss' });
 
   if (result.status === 'redirect') {
     if (req.method === 'GET' && !isPrefetch(req)) {

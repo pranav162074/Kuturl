@@ -1,10 +1,13 @@
+import env from './config/env.js';
 import logger from './config/logger.js';
 import { closePool } from './config/db.js';
 import { createRedisConnection } from './config/redisConnection.js';
 import { createClickWorker } from './worker/clickWorker.js';
+import { createMetricsServer } from './worker/metricsServer.js';
 
 const connection = createRedisConnection('Worker Redis');
 const worker = createClickWorker({ redis: connection });
+const metricsServer = env.workerMetricsPort ? createMetricsServer() : null;
 
 let shuttingDown = false;
 
@@ -20,6 +23,7 @@ const shutdown = async (signal) => {
   force.unref();
 
   try {
+    if (metricsServer) await new Promise((resolve) => metricsServer.close(resolve));
     await worker.stop();
     await connection.quit();
     await closePool();
@@ -37,6 +41,11 @@ process.on('unhandledRejection', (reason) => {
 
 try {
   await worker.start();
+  if (metricsServer) {
+    metricsServer.listen(env.workerMetricsPort, () => {
+      logger.info({ port: env.workerMetricsPort }, 'Worker metrics listening');
+    });
+  }
 } catch (error) {
   logger.fatal({ err: error }, 'Click worker could not start');
   process.exit(1);

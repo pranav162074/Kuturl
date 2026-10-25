@@ -6,15 +6,18 @@ import {
   releaseIdempotencyKey,
 } from '../db/idempotencyKeys.js';
 import { requestHash } from '../utils/requestHash.js';
+import { idempotencyRequests } from '../config/metrics.js';
 
 const KEY_PATTERN = /^[\x21-\x7E]{1,255}$/;
 const MAX_CLAIM_ATTEMPTS = 3;
 
-const inProgress = (res) =>
-  res.status(409).set('Retry-After', '1').json({
+const inProgress = (res) => {
+  idempotencyRequests.inc({ outcome: 'in_progress' });
+  return res.status(409).set('Retry-After', '1').json({
     error: 'idempotency_request_in_progress',
     message: 'A request with this Idempotency-Key is still being processed, retry shortly',
   });
+};
 
 const recordOutcome = (req, res, next, owner) => {
   let settled = false;
@@ -63,6 +66,7 @@ const idempotency = async (req, res, next) => {
   for (let attempt = 1; attempt <= MAX_CLAIM_ATTEMPTS; attempt += 1) {
     const token = randomUUID();
     if (await claimIdempotencyKey({ apiKeyId, key, requestHash: hash, token })) {
+      idempotencyRequests.inc({ outcome: 'new' });
       return recordOutcome(req, res, next, { apiKeyId, key, token });
     }
 
@@ -70,6 +74,7 @@ const idempotency = async (req, res, next) => {
     if (!record) continue;
 
     if (record.requestHash !== hash) {
+      idempotencyRequests.inc({ outcome: 'key_reused' });
       return res.status(422).json({
         error: 'idempotency_key_reused',
         message: 'This Idempotency-Key was already used with a different request',
@@ -78,6 +83,7 @@ const idempotency = async (req, res, next) => {
 
     if (record.status === 'processing') return inProgress(res);
 
+    idempotencyRequests.inc({ outcome: 'replayed' });
     return res.status(record.responseStatus).set('Idempotent-Replayed', 'true').json(record.responseBody);
   }
 

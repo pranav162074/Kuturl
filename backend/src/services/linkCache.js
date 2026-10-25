@@ -1,6 +1,7 @@
 import redis from '../config/redis.js';
 import logger from '../config/logger.js';
 import { withTimeout } from '../utils/timeout.js';
+import { cacheErrors } from '../config/metrics.js';
 
 const PREFIX = 'link:';
 const COMMAND_TIMEOUT_MS = 100; // past this, Postgres is the faster answer
@@ -32,6 +33,7 @@ const guarded = async (command, { force = false } = {}) => {
     return await withTimeout(command(), COMMAND_TIMEOUT_MS);
   } catch (error) {
     skipCacheUntil = Date.now() + BREAKER_MS;
+    cacheErrors.inc();
     if (force) {
       logger.error({ err: error }, 'Could not update the cache, an old entry may live until its TTL');
     } else {

@@ -1,6 +1,7 @@
 import rateLimits from '../config/rateLimits.js';
 import { consume } from '../services/rateLimiter.js';
 import { clientKey } from '../utils/clientKey.js';
+import { rateLimitDecisions } from '../config/metrics.js';
 
 const SCOPES = new Set(['ip', 'key']);
 
@@ -17,6 +18,7 @@ const rateLimit = (policyName, { scope, cost = 1 }) => {
     const result = await consume(policyName, identityFor(scope, req), policy, cost);
 
     if (!result) {
+      rateLimitDecisions.inc({ policy: policyName, outcome: 'unavailable' });
       if (policy.failOpen) return next();
       return res.status(503).json({
         error: 'service_unavailable',
@@ -30,6 +32,7 @@ const rateLimit = (policyName, { scope, cost = 1 }) => {
       'RateLimit-Reset': String(result.resetSeconds),
     });
 
+    rateLimitDecisions.inc({ policy: policyName, outcome: result.allowed ? 'allowed' : 'limited' });
     if (result.allowed) return next();
 
     res.set('Retry-After', String(result.retryAfterSeconds));
