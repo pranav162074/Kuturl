@@ -1,5 +1,27 @@
 import { findLinkByCode } from '../db/links.js';
 import { getEntry, fillEntry, entryFromLink } from './linkCache.js';
+import { coalescedLookups } from '../config/metrics.js';
+
+const inFlight = new Map();
+
+export const inFlightLookups = () => inFlight.size;
+
+const loadEntry = (code, now) => {
+  const pending = inFlight.get(code);
+  if (pending) {
+    coalescedLookups.inc();
+    return pending;
+  }
+
+  const lookup = (async () => {
+    const entry = entryFromLink(await findLinkByCode(code));
+    await fillEntry(code, entry, now);
+    return entry;
+  })().finally(() => inFlight.delete(code));
+
+  inFlight.set(code, lookup);
+  return lookup;
+};
 
 // Turns a cache entry into a decision. Expiry is compared with the clock on every call: a
 // cache TTL only has one-second granularity and can lag, so it is never the source of truth.
@@ -18,10 +40,7 @@ export const resolveCode = async (code, now = Date.now()) => {
 
   if (!entry) {
     source = 'database';
-    entry = entryFromLink(await findLinkByCode(code));
-    // "Does not exist" is cached too, so scanning random codes can't push every request
-    // through to the database
-    await fillEntry(code, entry, now);
+    entry = await loadEntry(code, now);
   }
 
   return { ...decide(entry, now), source };
