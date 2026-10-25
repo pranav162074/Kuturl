@@ -4,6 +4,7 @@ import logger from '../config/logger.js';
 import analytics from '../config/analytics.js';
 import { deviceClass } from '../utils/device.js';
 import { referrerHost } from '../utils/referrer.js';
+import { clickEvents } from '../config/metrics.js';
 
 export const buildClickEvent = ({ code, userAgent, referer, now = Date.now() }) => ({
   id: randomUUID(),
@@ -14,7 +15,10 @@ export const buildClickEvent = ({ code, userAgent, referer, now = Date.now() }) 
 });
 
 export const recordClick = (input) => {
-  if (redis.status !== 'ready') return false;
+  if (redis.status !== 'ready') {
+    clickEvents.inc({ outcome: 'dropped' });
+    return false;
+  }
 
   const event = buildClickEvent(input);
   redis
@@ -35,6 +39,10 @@ export const recordClick = (input) => {
       'dev',
       event.dev
     )
-    .catch((error) => logger.warn({ err: error }, 'Could not record a click'));
+    .then(() => clickEvents.inc({ outcome: 'queued' }))
+    .catch((error) => {
+      clickEvents.inc({ outcome: 'dropped' });
+      logger.warn({ err: error }, 'Could not record a click');
+    });
   return true;
 };

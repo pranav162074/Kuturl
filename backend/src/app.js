@@ -4,6 +4,11 @@ import helmet from 'helmet';
 import cors from 'cors';
 import pinoHttp from 'pino-http';
 import logger from './config/logger.js';
+import redis from './config/redis.js';
+import { watchClickStream } from './config/metrics.js';
+import { accessLogOptions } from './config/accessLog.js';
+import requestMetrics from './middleware/requestMetrics.js';
+import metricsRoutes from './routes/metricsRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import keysRoutes from './routes/keysRoutes.js';
 import linksRoutes from './routes/linksRoutes.js';
@@ -29,15 +34,19 @@ app.use(
       return id;
     },
     // Health checks run constantly and would drown out the useful logs
-    autoLogging: { ignore: (req) => req.url === '/ping' || req.url === '/health' },
+    autoLogging: { ignore: (req) => ['/ping', '/health', '/metrics'].includes(req.url) },
+    ...accessLogOptions,
   })
 );
+app.use(requestMetrics);
+watchClickStream(redis);
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '100kb' })); // no endpoint needs a large body
 
 app.use(healthRoutes);
+app.use(metricsRoutes);
 app.use('/api/v1', rateLimit('apiIp', { scope: 'ip' }));
 app.use('/api/v1/keys', keysRoutes);
 app.use('/api/v1/links', linksRoutes);
