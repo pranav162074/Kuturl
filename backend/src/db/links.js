@@ -15,6 +15,7 @@ const toLink = (row) =>
     expiresAt: row.expires_at,
     disabledAt: row.disabled_at,
     createdAt: row.created_at,
+    passwordHash: row.password_hash ?? null,
   };
 
 // Short codes are derived from the id, so the id has to exist before the insert.
@@ -32,8 +33,8 @@ export const reserveLinkIds = async (count, db = { query }) => {
 export const insertLinks = async (links, db = { query }) => {
   if (links.length === 0) return [];
   const { rows } = await db.query(
-    `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at)
-     SELECT * FROM unnest($1::bigint[], $2::text[], $3::text[], $4::bigint[], $5::boolean[], $6::timestamptz[])
+    `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at, password_hash)
+     SELECT * FROM unnest($1::bigint[], $2::text[], $3::text[], $4::bigint[], $5::boolean[], $6::timestamptz[], $7::text[])
      ON CONFLICT DO NOTHING
      RETURNING *`,
     [
@@ -43,6 +44,7 @@ export const insertLinks = async (links, db = { query }) => {
       links.map((link) => link.apiKeyId),
       links.map((link) => link.isCustom ?? false),
       links.map((link) => link.expiresAt ?? null),
+      links.map((link) => link.passwordHash ?? null),
     ]
   );
   return rows.map(toLink);
@@ -51,10 +53,18 @@ export const insertLinks = async (links, db = { query }) => {
 export const insertLink = async (link, db = { query }) => {
   try {
     const { rows } = await db.query(
-      `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [link.id, link.code, link.longUrl, link.apiKeyId, link.isCustom ?? false, link.expiresAt ?? null]
+      [
+        link.id,
+        link.code,
+        link.longUrl,
+        link.apiKeyId,
+        link.isCustom ?? false,
+        link.expiresAt ?? null,
+        link.passwordHash ?? null,
+      ]
     );
     return toLink(rows[0]);
   } catch (error) {
@@ -109,6 +119,10 @@ export const updateOwnedLink = async (code, apiKeyId, changes, db = { query }) =
   if ('expiresAt' in changes) {
     params.push(changes.expiresAt);
     sets.push(`expires_at = $${params.length}`);
+  }
+  if ('passwordHash' in changes) {
+    params.push(changes.passwordHash);
+    sets.push(`password_hash = $${params.length}`);
   }
   if (sets.length === 0) return findOwnedLink(code, apiKeyId, db);
 
