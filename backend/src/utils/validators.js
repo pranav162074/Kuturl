@@ -161,3 +161,12 @@ export const qrQuerySchema = z.strictObject({
     .default(2),
   ecc: z.enum(['L', 'M', 'Q', 'H'], { error: 'ecc must be L, M, Q or H' }).default('M'),
 });
+
+export const MAX_BULK_LINKS = 100;
+
+export const bulkCreateSchema = z.strictObject({
+  links: z
+    .array(z.unknown(), { error: 'links must be an array' })
+    .min(1, 'links must contain at least one link')
+    .max(MAX_BULK_LINKS, `links can contain at most ${MAX_BULK_LINKS} links`),
+});

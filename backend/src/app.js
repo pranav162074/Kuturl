@@ -43,7 +43,7 @@ watchClickStream(redis);
 
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '100kb' })); // no endpoint needs a large body
+app.use(express.json({ limit: '300kb' }));
 
 app.use(healthRoutes);
 app.use(metricsRoutes);

@@ -17,6 +17,7 @@ import {
   statsDevicesHandler,
 } from '../controllers/statsController.js';
 import { qrHandler } from '../controllers/qrController.js';
+import { bulkCreateHandler } from '../controllers/bulkLinksController.js';
 import {
   createLinkSchema,
   updateLinkSchema,
@@ -25,6 +26,7 @@ import {
   statsReferrersQuerySchema,
   statsDevicesQuerySchema,
   qrQuerySchema,
+  bulkCreateSchema,
 } from '../utils/validators.js';
 
 const router = express.Router();
@@ -38,6 +40,13 @@ router.post(
   validate(createLinkSchema),
   idempotency,
   createLinkHandler
+);
+router.post(
+  '/bulk',
+  validate(bulkCreateSchema),
+  rateLimit('linkCreation', { scope: 'key', cost: (req) => req.body.links.length }),
+  idempotency,
+  bulkCreateHandler
 );
 router.get('/', validateQuery(listLinksQuerySchema), listLinksHandler);
 router.get('/:code', getLinkHandler);

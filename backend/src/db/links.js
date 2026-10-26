@@ -24,6 +24,30 @@ export const reserveLinkId = async (db = { query }) => {
   return rows[0].id;
 };
 
+export const reserveLinkIds = async (count, db = { query }) => {
+  const { rows } = await db.query(`SELECT nextval('links_id_seq') AS id FROM generate_series(1, $1)`, [count]);
+  return rows.map((row) => row.id);
+};
+
+export const insertLinks = async (links, db = { query }) => {
+  if (links.length === 0) return [];
+  const { rows } = await db.query(
+    `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at)
+     SELECT * FROM unnest($1::bigint[], $2::text[], $3::text[], $4::bigint[], $5::boolean[], $6::timestamptz[])
+     ON CONFLICT DO NOTHING
+     RETURNING *`,
+    [
+      links.map((link) => link.id),
+      links.map((link) => link.code),
+      links.map((link) => link.longUrl),
+      links.map((link) => link.apiKeyId),
+      links.map((link) => link.isCustom ?? false),
+      links.map((link) => link.expiresAt ?? null),
+    ]
+  );
+  return rows.map(toLink);
+};
+
 export const insertLink = async (link, db = { query }) => {
   try {
     const { rows } = await db.query(

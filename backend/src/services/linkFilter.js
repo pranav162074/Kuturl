@@ -93,13 +93,14 @@ const mightExist = (code) => {
   return maybe;
 };
 
-const announce = async (code) => {
-  add(code);
+const announce = async (...newCodes) => {
+  if (newCodes.length === 0) return;
+  for (const code of newCodes) add(code);
   if (!settings.enabled || redis.status !== 'ready') return;
   try {
-    await withTimeout(redis.publish(settings.channel, code), settings.publishTimeoutMs);
+    await withTimeout(redis.publish(settings.channel, newCodes.join(',')), settings.publishTimeoutMs);
   } catch (error) {
-    logger.warn({ err: error }, 'Could not announce a new link');
+    logger.warn({ err: error }, 'Could not announce new links');
   }
 };
 
@@ -108,8 +109,9 @@ const start = async ({ connection = createRedisConnection('Filter Redis') } = {}
 
   subscriber = connection;
   let subscribedOnce = false;
-  subscriber.on('message', (channel, code) => {
-    if (channel === settings.channel && isValidCodeShape(code)) add(code);
+  subscriber.on('message', (channel, message) => {
+    if (channel !== settings.channel) return;
+    for (const code of message.split(',')) if (isValidCodeShape(code)) add(code);
   });
   subscriber.on('ready', () => {
     if (subscribedOnce) safely('refresh after reconnect', refresh)();
