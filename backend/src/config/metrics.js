@@ -63,6 +63,13 @@ filterGauge(
   'estimatedFalsePositiveRate'
 );
 
+export const qrCodes = new client.Counter({
+  name: 'kuturl_qr_codes_total',
+  help: 'QR code requests, by format and whether they were rendered, served from memory, or answered 304',
+  labelNames: ['format', 'result'],
+  registers: [registry],
+});
+
 export const cacheErrors = new client.Counter({
   name: 'kuturl_cache_errors_total',
   help: 'Redis cache commands that failed or timed out',

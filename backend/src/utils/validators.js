@@ -144,3 +144,20 @@ export const statsReferrersQuerySchema = z
     limit: z.coerce.number().int().min(1).max(50).default(10),
   })
   .transform(breakdownRange);
+
+export const qrQuerySchema = z.strictObject({
+  format: z.enum(['svg', 'png'], { error: 'format must be svg or png' }).default('svg'),
+  size: z.coerce
+    .number({ error: 'size must be a number' })
+    .int('size must be a whole number')
+    .min(128, 'size must be at least 128')
+    .max(1024, 'size must be at most 1024')
+    .default(512),
+  margin: z.coerce
+    .number({ error: 'margin must be a number' })
+    .int('margin must be a whole number')
+    .min(0, 'margin must be at least 0')
+    .max(10, 'margin must be at most 10')
+    .default(2),
+  ecc: z.enum(['L', 'M', 'Q', 'H'], { error: 'ecc must be L, M, Q or H' }).default('M'),
+});
