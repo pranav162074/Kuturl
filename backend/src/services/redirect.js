@@ -1,6 +1,7 @@
 import { findLinkByCode } from '../db/links.js';
 import { getEntry, fillEntry, entryFromLink } from './linkCache.js';
 import { coalescedLookups } from '../config/metrics.js';
+import linkFilter from './linkFilter.js';
 
 const inFlight = new Map();
 
@@ -35,6 +36,8 @@ const decide = (entry, now) => {
 // Looks a code up in Redis first and falls back to Postgres. The cache helpers never throw,
 // so a Redis problem only costs time. Postgres errors do propagate (a 500 is the honest answer).
 export const resolveCode = async (code, now = Date.now()) => {
+  if (!linkFilter.mightExist(code)) return { status: 'not_found', source: 'filter' };
+
   let entry = await getEntry(code);
   let source = 'cache';
 
