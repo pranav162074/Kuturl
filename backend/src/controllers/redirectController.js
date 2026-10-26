@@ -16,6 +16,8 @@ const fail = (req, res, status, error, title, message) => {
   return res.json({ error, message });
 };
 
+const CACHE_RESULTS = { cache: 'hit', database: 'miss', filter: 'filtered' };
+
 const isPrefetch = (req) => /prefetch|prerender/i.test(req.get('sec-purpose') ?? req.get('purpose') ?? '');
 
 // @route GET /:code
@@ -31,8 +33,9 @@ export const redirectToLink = async (req, res) => {
   }
 
   const result = await resolveCode(code);
-  res.set('X-Cache', result.source === 'cache' ? 'HIT' : 'MISS');
-  redirects.inc({ outcome: result.status, cache: result.source === 'cache' ? 'hit' : 'miss' });
+  const cache = CACHE_RESULTS[result.source];
+  res.set('X-Cache', cache.toUpperCase());
+  redirects.inc({ outcome: result.status, cache });
 
   if (result.status === 'redirect') {
     if (req.method === 'GET' && !isPrefetch(req)) {

@@ -5,11 +5,13 @@ import app from './app.js';
 import { closePool } from './config/db.js';
 import redis from './config/redis.js';
 import { deleteExpiredIdempotencyKeys } from './db/idempotencyKeys.js';
+import linkFilter from './services/linkFilter.js';
 
 const server = http.createServer(app);
 
 server.listen(env.port, () => {
   logger.info({ port: env.port, env: env.nodeEnv }, 'Kuturl is listening');
+  linkFilter.start().catch((error) => logger.error({ err: error }, 'Link filter could not start'));
 });
 
 const IDEMPOTENCY_CLEANUP_MS = 60 * 60 * 1000;
@@ -44,6 +46,7 @@ const shutdown = (signal) => {
 
   server.close(async () => {
     try {
+      await linkFilter.stop();
       await closePool();
       await redis.quit();
     } catch (error) {

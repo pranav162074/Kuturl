@@ -30,6 +30,39 @@ export const coalescedLookups = new client.Counter({
   registers: [registry],
 });
 
+export const bloomFilterChecks = new client.Counter({
+  name: 'kuturl_bloom_filter_checks_total',
+  help: 'Redirect lookups checked against the Bloom filter: absent (answered 404 at once), maybe (passed on), or bypassed (filter not ready)',
+  labelNames: ['result'],
+  registers: [registry],
+});
+
+let linkFilterStats = () => null;
+
+export const watchLinkFilter = (stats) => {
+  linkFilterStats = stats;
+};
+
+const filterGauge = (name, help, field) =>
+  new client.Gauge({
+    name,
+    help,
+    registers: [registry],
+    collect() {
+      const stats = linkFilterStats();
+      if (stats) this.set(stats[field]);
+    },
+  });
+
+filterGauge('kuturl_bloom_filter_items', 'Codes added to the Bloom filter since it was last built', 'items');
+filterGauge('kuturl_bloom_filter_capacity', 'Codes the Bloom filter was sized for', 'capacity');
+filterGauge('kuturl_bloom_filter_bytes', 'Memory used by the Bloom filter bit array', 'bytes');
+filterGauge(
+  'kuturl_bloom_filter_estimated_false_positive_rate',
+  'Expected share of absent codes the filter wrongly passes on, at its current fill',
+  'estimatedFalsePositiveRate'
+);
+
 export const cacheErrors = new client.Counter({
   name: 'kuturl_cache_errors_total',
   help: 'Redis cache commands that failed or timed out',

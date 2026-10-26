@@ -10,6 +10,7 @@ import {
 import { CodeTakenError } from '../db/errors.js';
 import { setEntry, entryFromLink } from './linkCache.js';
 import codes from './codes.js';
+import linkFilter from './linkFilter.js';
 
 const MAX_ATTEMPTS = 5;
 
@@ -40,7 +41,11 @@ const createGenerated = async ({ apiKeyId, longUrl, expiresAt }) => {
   }
 };
 
-export const createLink = (input) => (input.alias ? createWithAlias(input) : createGenerated(input));
+export const createLink = async (input) => {
+  const link = await (input.alias ? createWithAlias(input) : createGenerated(input));
+  await linkFilter.announce(link.code);
+  return link;
+};
 
 export const getLink = (code, apiKeyId) => findOwnedLink(code, apiKeyId);
 
