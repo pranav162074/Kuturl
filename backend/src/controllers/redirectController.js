@@ -7,6 +7,9 @@ import { consume } from '../services/rateLimiter.js';
 import { findLinkByCode } from '../db/links.js';
 import { verifyPassword } from '../utils/password.js';
 import { clientKey } from '../utils/clientKey.js';
+import { consumeClick, markLimitReached } from '../services/clickLimits.js';
+import { toShortUrl } from '../services/links.js';
+import logger from '../config/logger.js';
 
 const page = (title, message) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
@@ -33,6 +36,32 @@ const askForPassword = (req, res, status, error, message, notice) => {
   return res.json({ error, message, unlockUrl: `/${req.params.code}/unlock` });
 };
 
+const GONE = {
+  expired: ['link_expired', 'Link expired', 'This short link has expired.'],
+  disabled: ['link_disabled', 'Link disabled', 'This short link has been disabled.'],
+  click_limit: ['link_click_limit_reached', 'Link no longer available', 'This short link has reached its click limit.'],
+};
+
+const gone = (req, res, reason) => fail(req, res, 410, ...GONE[reason]);
+
+const spendClick = async (req, res, limit) => {
+  const consumed = await consumeClick(limit);
+  if (!consumed) {
+    fail(req, res, 503, 'service_unavailable', 'Temporarily unavailable', 'Please try again in a moment.');
+    return false;
+  }
+  if (consumed.outcome !== 'allowed') {
+    markLimitReached(limit.linkId, toShortUrl).catch((error) =>
+      logger.error({ err: error }, 'Could not record that a click limit was reached')
+    );
+  }
+  if (consumed.outcome === 'exhausted') {
+    gone(req, res, 'click_limit');
+    return false;
+  }
+  return true;
+};
+
 const CACHE_RESULTS = { cache: 'hit', database: 'miss', filter: 'filtered' };
 
 const isPrefetch = (req) => /prefetch|prerender/i.test(req.get('sec-purpose') ?? req.get('purpose') ?? '');
@@ -55,9 +84,9 @@ export const redirectToLink = async (req, res) => {
   redirects.inc({ outcome: result.status, cache });
 
   if (result.status === 'redirect') {
-    if (req.method === 'GET' && !isPrefetch(req)) {
-      recordClick({ code, userAgent: req.get('user-agent'), referer: req.get('referer') });
-    }
+    const counted = req.method === 'GET' && !isPrefetch(req);
+    if (counted && result.limit && !(await spendClick(req, res, result.limit))) return undefined;
+    if (counted) recordClick({ code, userAgent: req.get('user-agent'), referer: req.get('referer') });
     return res.redirect(302, result.url);
   }
 
@@ -65,11 +94,7 @@ export const redirectToLink = async (req, res) => {
     return askForPassword(req, res, 403, 'password_required', 'This link is protected by a password');
   }
 
-  if (result.status === 'gone') {
-    return result.reason === 'expired'
-      ? fail(req, res, 410, 'link_expired', 'Link expired', 'This short link has expired.')
-      : fail(req, res, 410, 'link_disabled', 'Link disabled', 'This short link has been disabled.');
-  }
+  if (result.status === 'gone') return gone(req, res, result.reason);
 
   return fail(req, res, 404, 'not_found', 'Link not found', 'This short link does not exist.');
 };
@@ -115,10 +140,9 @@ export const unlockLink = async (req, res) => {
 
   const link = await findLinkByCode(code);
   if (!link) return fail(req, res, 404, 'not_found', 'Link not found', 'This short link does not exist.');
-  if (link.disabledAt) return fail(req, res, 410, 'link_disabled', 'Link disabled', 'This short link has been disabled.');
-  if (link.expiresAt && new Date(link.expiresAt).getTime() <= Date.now()) {
-    return fail(req, res, 410, 'link_expired', 'Link expired', 'This short link has expired.');
-  }
+  if (link.disabledAt) return gone(req, res, 'disabled');
+  if (link.limitReachedAt) return gone(req, res, 'click_limit');
+  if (link.expiresAt && new Date(link.expiresAt).getTime() <= Date.now()) return gone(req, res, 'expired');
 
   if (link.passwordHash && !(await verifyPassword(password, link.passwordHash))) {
     unlockAttempts.inc({ result: 'wrong_password' });
@@ -126,6 +150,7 @@ export const unlockLink = async (req, res) => {
   }
 
   unlockAttempts.inc({ result: link.passwordHash ? 'success' : 'not_protected' });
+  if (link.maxClicks && !(await spendClick(req, res, { linkId: String(link.id), max: link.maxClicks }))) return undefined;
   recordClick({ code, userAgent: req.get('user-agent'), referer: req.get('referer') });
   return res.redirect(302, link.longUrl);
 };

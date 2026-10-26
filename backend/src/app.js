@@ -12,6 +12,7 @@ import metricsRoutes from './routes/metricsRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import keysRoutes from './routes/keysRoutes.js';
 import linksRoutes from './routes/linksRoutes.js';
+import webhooksRoutes from './routes/webhooksRoutes.js';
 import redirectRoutes from './routes/redirectRoutes.js';
 import rateLimit from './middleware/rateLimit.js';
 
@@ -50,6 +51,7 @@ app.use(metricsRoutes);
 app.use('/api/v1', rateLimit('apiIp', { scope: 'ip' }));
 app.use('/api/v1/keys', keysRoutes);
 app.use('/api/v1/links', linksRoutes);
+app.use('/api/v1/webhooks', webhooksRoutes);
 app.use(redirectRoutes);
 
 app.use((req, res) => {

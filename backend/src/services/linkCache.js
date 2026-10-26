@@ -47,15 +47,20 @@ const guarded = async (command, { force = false } = {}) => {
 export const entryFromLink = (link) => {
   if (!link) return { s: 'missing' };
   if (link.disabledAt) return { s: 'disabled' };
+  if (link.limitReachedAt) return { s: 'exhausted' };
   const entry = { s: 'active', u: link.longUrl, e: link.expiresAt ? new Date(link.expiresAt).getTime() : null };
   if (link.passwordHash) entry.p = true;
+  if (link.maxClicks) {
+    entry.m = link.maxClicks;
+    entry.i = String(link.id);
+  }
   return entry;
 };
 
 // How long an entry may stay cached
 export const ttlFor = (entry, now = Date.now()) => {
   if (entry.s === 'missing') return TTL_SECONDS.missing;
-  if (entry.s === 'disabled') return TTL_SECONDS.unavailable;
+  if (entry.s === 'disabled' || entry.s === 'exhausted') return TTL_SECONDS.unavailable;
   if (entry.e === null) return TTL_SECONDS.active;
 
   const remaining = Math.ceil((entry.e - now) / 1000);
@@ -67,7 +72,7 @@ export const JITTER_RATIO = 0.1;
 
 export const jitter = (ttl, random = Math.random) => Math.max(1, ttl - Math.floor(ttl * JITTER_RATIO * random()));
 
-const STATES = new Set(['active', 'missing', 'disabled']);
+const STATES = new Set(['active', 'missing', 'disabled', 'exhausted']);
 
 // Anything that does not look like an entry we wrote is treated as a miss
 const parse = (raw) => {
@@ -76,6 +81,7 @@ const parse = (raw) => {
     if (!entry || !STATES.has(entry.s)) return null;
     if (entry.s === 'active' && typeof entry.u !== 'string') return null;
     if ('p' in entry && entry.p !== true) return null;
+    if ('m' in entry && (!Number.isInteger(entry.m) || entry.m < 1 || typeof entry.i !== 'string')) return null;
     return entry;
   } catch {
     return null;

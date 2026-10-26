@@ -14,6 +14,7 @@ export const toLinkResponse = (link) => ({
 
 const statusOf = (link, now) => {
   if (link.disabledAt) return 'disabled';
+  if (link.limitReachedAt) return 'click_limit_reached';
   if (link.expiresAt && new Date(link.expiresAt).getTime() <= now) return 'expired';
   return 'active';
 };
@@ -25,6 +26,8 @@ export const toLinkDetails = (link, now = Date.now()) => ({
   disabledAt: link.disabledAt,
   isCustom: link.isCustom,
   passwordProtected: Boolean(link.passwordHash),
+  maxClicks: link.maxClicks,
+  clickLimitReachedAt: link.limitReachedAt,
 });
 
 // Someone else's link and a link that doesn't exist look exactly the same
@@ -32,11 +35,11 @@ const notFound = (res) => res.status(404).json({ error: 'not_found', message: 'L
 
 // @route POST /api/v1/links
 export const createLinkHandler = async (req, res) => {
-  const { url, alias, expiresAt, password } = req.body;
+  const { url, alias, expiresAt, password, maxClicks } = req.body;
 
   let link;
   try {
-    link = await createLink({ apiKeyId: req.apiKey.id, longUrl: url, alias, expiresAt, password });
+    link = await createLink({ apiKeyId: req.apiKey.id, longUrl: url, alias, expiresAt, password, maxClicks });
   } catch (error) {
     // Only a chosen alias can be "taken" from the caller's point of view.
     // Generated codes retry on their own, so they never reach this branch.

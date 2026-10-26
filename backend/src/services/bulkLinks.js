@@ -48,6 +48,7 @@ export const createLinks = async (apiKeyId, items) => {
       isCustom: Boolean(item.alias),
       expiresAt: item.expiresAt ?? null,
       passwordHash: hashes.get(item.index) ?? null,
+      maxClicks: item.maxClicks ?? null,
     }));
 
     const inserted = new Map((await insertLinks(rows)).map((link) => [link.id, link]));

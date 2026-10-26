@@ -1,4 +1,4 @@
-const PREFIXES = ['/api/v1/links', '/api/v1/keys', '/api/v1'];
+const PREFIXES = ['/api/v1/links', '/api/v1/keys', '/api/v1/webhooks', '/api/v1'];
 
 export const routeLabel = (req) => {
   if (req.route?.path) {
