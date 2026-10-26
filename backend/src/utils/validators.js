@@ -41,10 +41,16 @@ export const aliasSchema = z
 
 // strictObject rejects fields it doesn't know, so a typo like "expires_at" is an error
 // instead of being silently ignored and creating a link that never expires
+export const passwordSchema = z
+  .string({ error: 'password must be text' })
+  .min(6, 'password must be at least 6 characters')
+  .max(128, 'password must be at most 128 characters');
+
 export const createLinkSchema = z.strictObject({
   url: longUrlSchema,
   alias: aliasSchema.optional(),
   expiresAt: expiresAtSchema.optional(),
+  password: passwordSchema.optional(),
 });
 
 export const createApiKeySchema = z.strictObject({
@@ -62,8 +68,9 @@ export const updateLinkSchema = z
   .strictObject({
     disabled: z.boolean({ error: 'disabled must be true or false' }).optional(),
     expiresAt: expiresAtSchema.nullable().optional(),
+    password: passwordSchema.nullable().optional(),
   })
-  .refine((body) => Object.keys(body).length > 0, { error: 'Provide disabled or expiresAt' });
+  .refine((body) => Object.keys(body).length > 0, { error: 'Provide disabled, expiresAt or password' });
 
 // The cursor handed out by the list endpoint is the next link's id run through the same
 // scrambler as short codes. Raw ids would reveal how many links exist across all owners.

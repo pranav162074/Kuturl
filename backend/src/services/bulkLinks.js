@@ -2,6 +2,7 @@ import { reserveLinkIds, insertLinks } from '../db/links.js';
 import { setEntry, entryFromLink } from './linkCache.js';
 import codes from './codes.js';
 import linkFilter from './linkFilter.js';
+import { hashPassword } from '../utils/password.js';
 
 const MAX_ATTEMPTS = 5;
 
@@ -29,6 +30,12 @@ export const createLinks = async (apiKeyId, items) => {
     pending.push(item);
   }
 
+  const hashes = new Map(
+    await Promise.all(
+      pending.filter((item) => item.password).map(async (item) => [item.index, await hashPassword(item.password)])
+    )
+  );
+
   const created = [];
   for (let attempt = 1; pending.length > 0; attempt += 1) {
     const ids = await reserveLinkIds(pending.length);
@@ -40,6 +47,7 @@ export const createLinks = async (apiKeyId, items) => {
       apiKeyId,
       isCustom: Boolean(item.alias),
       expiresAt: item.expiresAt ?? null,
+      passwordHash: hashes.get(item.index) ?? null,
     }));
 
     const inserted = new Map((await insertLinks(rows)).map((link) => [link.id, link]));

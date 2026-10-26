@@ -47,7 +47,9 @@ const guarded = async (command, { force = false } = {}) => {
 export const entryFromLink = (link) => {
   if (!link) return { s: 'missing' };
   if (link.disabledAt) return { s: 'disabled' };
-  return { s: 'active', u: link.longUrl, e: link.expiresAt ? new Date(link.expiresAt).getTime() : null };
+  const entry = { s: 'active', u: link.longUrl, e: link.expiresAt ? new Date(link.expiresAt).getTime() : null };
+  if (link.passwordHash) entry.p = true;
+  return entry;
 };
 
 // How long an entry may stay cached
@@ -73,6 +75,7 @@ const parse = (raw) => {
     const entry = JSON.parse(raw);
     if (!entry || !STATES.has(entry.s)) return null;
     if (entry.s === 'active' && typeof entry.u !== 'string') return null;
+    if ('p' in entry && entry.p !== true) return null;
     return entry;
   } catch {
     return null;

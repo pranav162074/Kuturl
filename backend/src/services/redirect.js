@@ -30,6 +30,7 @@ const decide = (entry, now) => {
   if (entry.s === 'missing') return { status: 'not_found' };
   if (entry.s === 'disabled') return { status: 'gone', reason: 'disabled' };
   if (entry.e !== null && entry.e <= now) return { status: 'gone', reason: 'expired' };
+  if (entry.p) return { status: 'protected' };
   return { status: 'redirect', url: entry.u };
 };
 

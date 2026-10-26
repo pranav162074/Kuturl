@@ -7,5 +7,7 @@ export default {
     keyCreation: { capacity: 5, refillPerSecond: 5 / 3600, failOpen: false },
     apiKey: { capacity: 100, refillPerSecond: 5, failOpen: true },
     linkCreation: { capacity: 100, refillPerSecond: 0.5, failOpen: true },
+    unlockAttempt: { capacity: 5, refillPerSecond: 5 / 900, failOpen: false },
+    unlockLink: { capacity: 50, refillPerSecond: 50 / 3600, failOpen: false },
   },
 };

@@ -77,6 +77,13 @@ export const bulkLinkItems = new client.Counter({
   registers: [registry],
 });
 
+export const unlockAttempts = new client.Counter({
+  name: 'kuturl_unlock_attempts_total',
+  help: 'Attempts to open a password-protected link, by result',
+  labelNames: ['result'],
+  registers: [registry],
+});
+
 export const cacheErrors = new client.Counter({
   name: 'kuturl_cache_errors_total',
   help: 'Redis cache commands that failed or timed out',
