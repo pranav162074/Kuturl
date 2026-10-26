@@ -70,6 +70,13 @@ export const qrCodes = new client.Counter({
   registers: [registry],
 });
 
+export const bulkLinkItems = new client.Counter({
+  name: 'kuturl_bulk_link_items_total',
+  help: 'Links requested through bulk creation, by outcome',
+  labelNames: ['outcome'],
+  registers: [registry],
+});
+
 export const cacheErrors = new client.Counter({
   name: 'kuturl_cache_errors_total',
   help: 'Redis cache commands that failed or timed out',

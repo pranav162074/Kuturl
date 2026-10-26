@@ -15,7 +15,8 @@ const rateLimit = (policyName, { scope, cost = 1 }) => {
     if (!rateLimits.enabled) return next();
 
     const policy = rateLimits.policies[policyName];
-    const result = await consume(policyName, identityFor(scope, req), policy, cost);
+    const amount = typeof cost === 'function' ? cost(req) : cost;
+    const result = await consume(policyName, identityFor(scope, req), policy, amount);
 
     if (!result) {
       rateLimitDecisions.inc({ policy: policyName, outcome: 'unavailable' });
