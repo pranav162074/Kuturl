@@ -3,6 +3,7 @@ import env from '../config/env.js';
 import { validateLongUrl } from './urlSafety.js';
 import codes from '../services/codes.js';
 import { isReservedAlias } from './reservedAliases.js';
+import webhookSettings from '../config/webhooks.js';
 
 const ownHost = new URL(env.baseUrl).hostname;
 const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
@@ -46,11 +47,18 @@ export const passwordSchema = z
   .min(6, 'password must be at least 6 characters')
   .max(128, 'password must be at most 128 characters');
 
+export const maxClicksSchema = z
+  .number({ error: 'maxClicks must be a number' })
+  .int('maxClicks must be a whole number')
+  .min(1, 'maxClicks must be at least 1')
+  .max(1_000_000_000, 'maxClicks must be at most 1000000000');
+
 export const createLinkSchema = z.strictObject({
   url: longUrlSchema,
   alias: aliasSchema.optional(),
   expiresAt: expiresAtSchema.optional(),
   password: passwordSchema.optional(),
+  maxClicks: maxClicksSchema.optional(),
 });
 
 export const createApiKeySchema = z.strictObject({
@@ -69,8 +77,9 @@ export const updateLinkSchema = z
     disabled: z.boolean({ error: 'disabled must be true or false' }).optional(),
     expiresAt: expiresAtSchema.nullable().optional(),
     password: passwordSchema.nullable().optional(),
+    maxClicks: maxClicksSchema.nullable().optional(),
   })
-  .refine((body) => Object.keys(body).length > 0, { error: 'Provide disabled, expiresAt or password' });
+  .refine((body) => Object.keys(body).length > 0, { error: 'Provide disabled, expiresAt, password or maxClicks' });
 
 // The cursor handed out by the list endpoint is the next link's id run through the same
 // scrambler as short codes. Raw ids would reveal how many links exist across all owners.
@@ -176,4 +185,39 @@ export const bulkCreateSchema = z.strictObject({
     .array(z.unknown(), { error: 'links must be an array' })
     .min(1, 'links must contain at least one link')
     .max(MAX_BULK_LINKS, `links can contain at most ${MAX_BULK_LINKS} links`),
+});
+
+const webhookUrlSchema = z
+  .string({ error: 'url is required' })
+  .max(2048, 'url must be at most 2048 characters')
+  .transform((value, ctx) => {
+    const reject = (message) => {
+      ctx.issues.push({ code: 'custom', message, input: value });
+      return z.NEVER;
+    };
+
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      return reject('url must be a full https:// address');
+    }
+    const httpAllowed = webhookSettings.allowPrivateTargets && url.protocol === 'http:';
+    if (url.protocol !== 'https:' && !httpAllowed) return reject('url must be a full https:// address');
+    if (url.username || url.password) return reject('url must not contain a username or password');
+    if (!webhookSettings.allowPrivateTargets && !validateLongUrl(value).ok) {
+      return reject('Webhooks cannot be sent to private or internal addresses');
+    }
+    return url.href;
+  });
+
+export const createWebhookSchema = z.strictObject({
+  url: webhookUrlSchema,
+  events: z
+    .array(z.enum(webhookSettings.events, { error: `events can only contain ${webhookSettings.events.join(', ')}` }), {
+      error: 'events must be an array',
+    })
+    .min(1, 'events must contain at least one event')
+    .default(['link.click_limit_reached'])
+    .transform((events) => [...new Set(events)]),
 });

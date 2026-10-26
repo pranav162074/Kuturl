@@ -76,6 +76,18 @@ const isPublicIPv6 = (groups) => {
   return true;
 };
 
+export const isPublicAddress = (address) => {
+  if (typeof address !== 'string') return false;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(address);
+  const ip = mapped ? mapped[1] : address;
+  if (IPV4.test(ip)) {
+    const parts = ip.split('.').map(Number);
+    return parts.every((part) => part <= 255) && !isPrivateIPv4(parts);
+  }
+  const groups = parseIPv6(ip.split('%')[0]);
+  return groups !== null && isPublicIPv6(groups);
+};
+
 const hasBlockedSuffix = (host) => {
   if (host === 'home.arpa' || host.endsWith('.home.arpa')) return true;
   return BLOCKED_SUFFIXES.has(host.slice(host.lastIndexOf('.') + 1));

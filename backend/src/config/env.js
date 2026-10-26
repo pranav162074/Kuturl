@@ -16,6 +16,7 @@ const schema = z.object({
   CODE_SECRET: z.string().min(16, 'must be at least 16 characters'),
   RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true'),
   BLOOM_FILTER_ENABLED: z.enum(['true', 'false']).default('true'),
+  WEBHOOK_ALLOW_PRIVATE_TARGETS: z.enum(['true', 'false']).default('false'),
   METRICS_TOKEN: z.string().min(16, 'must be at least 16 characters').optional(),
   WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65535).optional(),
 });
@@ -44,6 +45,7 @@ export default {
   codeSecret: values.CODE_SECRET,
   rateLimitEnabled: values.RATE_LIMIT_ENABLED === 'true',
   bloomFilterEnabled: values.BLOOM_FILTER_ENABLED === 'true',
+  webhookAllowPrivateTargets: values.WEBHOOK_ALLOW_PRIVATE_TARGETS === 'true',
   metricsToken: values.METRICS_TOKEN,
   workerMetricsPort: values.WORKER_METRICS_PORT,
 };

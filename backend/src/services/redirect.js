@@ -29,9 +29,11 @@ const loadEntry = (code, now) => {
 const decide = (entry, now) => {
   if (entry.s === 'missing') return { status: 'not_found' };
   if (entry.s === 'disabled') return { status: 'gone', reason: 'disabled' };
+  if (entry.s === 'exhausted') return { status: 'gone', reason: 'click_limit' };
   if (entry.e !== null && entry.e <= now) return { status: 'gone', reason: 'expired' };
-  if (entry.p) return { status: 'protected' };
-  return { status: 'redirect', url: entry.u };
+  const limit = entry.m ? { linkId: entry.i, max: entry.m } : null;
+  if (entry.p) return { status: 'protected', limit };
+  return { status: 'redirect', url: entry.u, limit };
 };
 
 // Looks a code up in Redis first and falls back to Postgres. The cache helpers never throw,

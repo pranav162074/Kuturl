@@ -4,9 +4,11 @@ import { closePool } from './config/db.js';
 import { createRedisConnection } from './config/redisConnection.js';
 import { createClickWorker } from './worker/clickWorker.js';
 import { createMetricsServer } from './worker/metricsServer.js';
+import { createWebhookDispatcher } from './worker/webhookDispatcher.js';
 
 const connection = createRedisConnection('Worker Redis');
 const worker = createClickWorker({ redis: connection });
+const dispatcher = createWebhookDispatcher({ subscriber: createRedisConnection('Webhook Redis') });
 const metricsServer = env.workerMetricsPort ? createMetricsServer() : null;
 
 let shuttingDown = false;
@@ -25,6 +27,7 @@ const shutdown = async (signal) => {
   try {
     if (metricsServer) await new Promise((resolve) => metricsServer.close(resolve));
     await worker.stop();
+    await dispatcher.stop();
     await connection.quit();
     await closePool();
   } catch (error) {
@@ -41,6 +44,7 @@ process.on('unhandledRejection', (reason) => {
 
 try {
   await worker.start();
+  await dispatcher.start();
   if (metricsServer) {
     metricsServer.listen(env.workerMetricsPort, () => {
       logger.info({ port: env.workerMetricsPort }, 'Worker metrics listening');

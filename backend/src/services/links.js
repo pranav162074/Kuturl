@@ -12,6 +12,7 @@ import { setEntry, entryFromLink } from './linkCache.js';
 import codes from './codes.js';
 import linkFilter from './linkFilter.js';
 import { hashPassword } from '../utils/password.js';
+import { forgetCounter } from './clickLimits.js';
 
 const MAX_ATTEMPTS = 5;
 
@@ -22,20 +23,20 @@ export const toShortUrl = (code) => `${env.baseUrl}/${code}`;
 // Any cached "this code does not exist" answer for it must go, otherwise someone who opened
 // the link a moment before it existed would keep getting a 404. The entry is overwritten
 // and not deleted, and a late cache fill cannot undo it, because fills never overwrite.
-const createWithAlias = async ({ apiKeyId, longUrl, expiresAt, alias, passwordHash }) => {
+const createWithAlias = async ({ apiKeyId, longUrl, expiresAt, alias, passwordHash, maxClicks }) => {
   const id = await reserveLinkId();
-  const link = await insertLink({ id, code: alias, longUrl, apiKeyId, expiresAt, isCustom: true, passwordHash });
+  const link = await insertLink({ id, code: alias, longUrl, apiKeyId, expiresAt, isCustom: true, passwordHash, maxClicks });
   await setEntry(alias, entryFromLink(link));
   return link;
 };
 
 // A generated code comes from the id, and the scramble can never produce the same code twice.
 // It can still collide with an alias somebody chose earlier, in which case the next id is tried.
-const createGenerated = async ({ apiKeyId, longUrl, expiresAt, passwordHash }) => {
+const createGenerated = async ({ apiKeyId, longUrl, expiresAt, passwordHash, maxClicks }) => {
   for (let attempt = 1; ; attempt += 1) {
     const id = await reserveLinkId();
     try {
-      return await insertLink({ id, code: codes.encode(id), longUrl, apiKeyId, expiresAt, passwordHash });
+      return await insertLink({ id, code: codes.encode(id), longUrl, apiKeyId, expiresAt, passwordHash, maxClicks });
     } catch (error) {
       if (!(error instanceof CodeTakenError) || attempt >= MAX_ATTEMPTS) throw error;
     }
@@ -68,6 +69,8 @@ export const changeLink = async (code, apiKeyId, { password, ...changes }) => {
 // A deleted link is cached as "missing", so it stops redirecting at once
 export const removeLink = async (code, apiKeyId) => {
   const deleted = await deleteOwnedLink(code, apiKeyId);
-  if (deleted) await setEntry(code, entryFromLink(null));
-  return deleted;
+  if (!deleted) return false;
+  await setEntry(code, entryFromLink(null));
+  if (deleted.maxClicks) await forgetCounter(deleted.id);
+  return true;
 };

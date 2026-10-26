@@ -16,6 +16,8 @@ const toLink = (row) =>
     disabledAt: row.disabled_at,
     createdAt: row.created_at,
     passwordHash: row.password_hash ?? null,
+    maxClicks: row.max_clicks ?? null,
+    limitReachedAt: row.limit_reached_at ?? null,
   };
 
 // Short codes are derived from the id, so the id has to exist before the insert.
@@ -33,8 +35,8 @@ export const reserveLinkIds = async (count, db = { query }) => {
 export const insertLinks = async (links, db = { query }) => {
   if (links.length === 0) return [];
   const { rows } = await db.query(
-    `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at, password_hash)
-     SELECT * FROM unnest($1::bigint[], $2::text[], $3::text[], $4::bigint[], $5::boolean[], $6::timestamptz[], $7::text[])
+    `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at, password_hash, max_clicks)
+     SELECT * FROM unnest($1::bigint[], $2::text[], $3::text[], $4::bigint[], $5::boolean[], $6::timestamptz[], $7::text[], $8::int[])
      ON CONFLICT DO NOTHING
      RETURNING *`,
     [
@@ -45,6 +47,7 @@ export const insertLinks = async (links, db = { query }) => {
       links.map((link) => link.isCustom ?? false),
       links.map((link) => link.expiresAt ?? null),
       links.map((link) => link.passwordHash ?? null),
+      links.map((link) => link.maxClicks ?? null),
     ]
   );
   return rows.map(toLink);
@@ -53,8 +56,8 @@ export const insertLinks = async (links, db = { query }) => {
 export const insertLink = async (link, db = { query }) => {
   try {
     const { rows } = await db.query(
-      `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at, password_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO links (id, code, long_url, api_key_id, is_custom, expires_at, password_hash, max_clicks)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         link.id,
@@ -64,6 +67,7 @@ export const insertLink = async (link, db = { query }) => {
         link.isCustom ?? false,
         link.expiresAt ?? null,
         link.passwordHash ?? null,
+        link.maxClicks ?? null,
       ]
     );
     return toLink(rows[0]);
@@ -124,6 +128,10 @@ export const updateOwnedLink = async (code, apiKeyId, changes, db = { query }) =
     params.push(changes.passwordHash);
     sets.push(`password_hash = $${params.length}`);
   }
+  if ('maxClicks' in changes) {
+    params.push(changes.maxClicks);
+    sets.push(`max_clicks = $${params.length}`, 'limit_reached_at = NULL');
+  }
   if (sets.length === 0) return findOwnedLink(code, apiKeyId, db);
 
   const { rows } = await db.query(
@@ -134,6 +142,9 @@ export const updateOwnedLink = async (code, apiKeyId, changes, db = { query }) =
 };
 
 export const deleteOwnedLink = async (code, apiKeyId, db = { query }) => {
-  const { rowCount } = await db.query(`DELETE FROM links WHERE code = $1 AND api_key_id = $2`, [code, apiKeyId]);
-  return rowCount > 0;
+  const { rows } = await db.query(`DELETE FROM links WHERE code = $1 AND api_key_id = $2 RETURNING id, max_clicks`, [
+    code,
+    apiKeyId,
+  ]);
+  return rows[0] ? { id: rows[0].id, maxClicks: rows[0].max_clicks } : null;
 };

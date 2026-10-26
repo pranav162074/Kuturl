@@ -84,6 +84,20 @@ export const unlockAttempts = new client.Counter({
   registers: [registry],
 });
 
+export const clickLimitChecks = new client.Counter({
+  name: 'kuturl_click_limit_checks_total',
+  help: 'Clicks on links with a click limit: allowed, last (the click that reached the limit), exhausted, or unavailable',
+  labelNames: ['outcome'],
+  registers: [registry],
+});
+
+export const webhookDeliveries = new client.Counter({
+  name: 'kuturl_webhook_deliveries_total',
+  help: 'Webhook delivery attempts: delivered, retry (will be tried again) or failed (gave up)',
+  labelNames: ['result'],
+  registers: [registry],
+});
+
 export const cacheErrors = new client.Counter({
   name: 'kuturl_cache_errors_total',
   help: 'Redis cache commands that failed or timed out',
