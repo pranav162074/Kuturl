@@ -16,6 +16,7 @@ import {
   statsReferrersHandler,
   statsDevicesHandler,
 } from '../controllers/statsController.js';
+import { qrHandler } from '../controllers/qrController.js';
 import {
   createLinkSchema,
   updateLinkSchema,
@@ -23,6 +24,7 @@ import {
   statsSeriesQuerySchema,
   statsReferrersQuerySchema,
   statsDevicesQuerySchema,
+  qrQuerySchema,
 } from '../utils/validators.js';
 
 const router = express.Router();
@@ -43,6 +45,7 @@ router.get('/:code/stats', statsSummaryHandler);
 router.get('/:code/stats/timeseries', validateQuery(statsSeriesQuerySchema), statsSeriesHandler);
 router.get('/:code/stats/referrers', validateQuery(statsReferrersQuerySchema), statsReferrersHandler);
 router.get('/:code/stats/devices', validateQuery(statsDevicesQuerySchema), statsDevicesHandler);
+router.get('/:code/qr', validateQuery(qrQuerySchema), qrHandler);
 router.patch('/:code', validate(updateLinkSchema), updateLinkHandler);
 router.delete('/:code', deleteLinkHandler);
 
