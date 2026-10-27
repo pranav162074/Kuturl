@@ -6,12 +6,22 @@ import { closePool } from './config/db.js';
 import redis from './config/redis.js';
 import { deleteExpiredIdempotencyKeys } from './db/idempotencyKeys.js';
 import linkFilter from './services/linkFilter.js';
+import { startBackgroundJobs } from './background.js';
 
 const server = http.createServer(app);
 
+let background = null;
+
 server.listen(env.port, () => {
-  logger.info({ port: env.port, env: env.nodeEnv }, 'Kuturl is listening');
+  logger.info({ port: env.port, env: env.nodeEnv, background: env.runWorker }, 'Kuturl is listening');
   linkFilter.start().catch((error) => logger.error({ err: error }, 'Link filter could not start'));
+  if (env.runWorker) {
+    startBackgroundJobs()
+      .then((jobs) => {
+        background = jobs;
+      })
+      .catch((error) => logger.error({ err: error }, 'Background jobs could not start'));
+  }
 });
 
 const IDEMPOTENCY_CLEANUP_MS = 60 * 60 * 1000;
@@ -46,6 +56,7 @@ const shutdown = (signal) => {
 
   server.close(async () => {
     try {
+      await background?.stop();
       await linkFilter.stop();
       await closePool();
       await redis.quit();
@@ -62,4 +73,4 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 // A promise nobody handled is a bug, so record it loudly. The process keeps running.
 process.on('unhandledRejection', (reason) => {
   logger.error({ err: reason }, 'Unhandled promise rejection');
-});
+});

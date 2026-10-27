@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: kuturl
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci && npm run migrate
+    startCommand: npm start
+    healthCheckPath: /ping
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: LOG_LEVEL
+        value: info
+      - key: RUN_WORKER
+        value: "true"
+      - key: REDIS_KEY_PREFIX
+        value: "prod:"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DEBUG_CLIENT_IP
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CODE_SECRET
+        generateValue: true
+      - key: METRICS_TOKEN
+        generateValue: true
