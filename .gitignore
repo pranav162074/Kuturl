@@ -11,6 +11,7 @@ dist/
 build/
 *.log
 npm-debug.log*
+load-results.json
 
 # Test coverage
 coverage/
@@ -21,4 +22,4 @@ Thumbs.db
 .vscode/
 
 # Local scratch space
-scratch/
+scratch/

@@ -11,7 +11,8 @@
     "dev:worker": "nodemon src/worker.js",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.js up",
-    "migrate:down": "node scripts/migrate.js down"
+    "migrate:down": "node scripts/migrate.js down",
+    "load": "node scripts/loadTest.js"
   },
   "type": "module",
   "engines": {
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "autocannon": "^8.0.0",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "jsqr": "^1.4.0",

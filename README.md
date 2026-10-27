@@ -94,6 +94,24 @@ All of these come from the test suite or from scripts in this repository, run ag
 
 How the stats queries were tuned is written up in [backend/docs/stats-query-plans.md](backend/docs/stats-query-plans.md).
 
+### Under load
+
+`npm run load` starts the real server (with the worker inside, as on Render), seeds 200 links, and drives each scenario with 50 connections for 10 seconds after a 2-second warm-up. Percentiles are computed from every response time, not estimated. It then restarts the server with the Bloom filter off and repeats the redirect scenarios. CI runs it on every pull request and posts the table in the run summary; any unexpected status, error or timeout fails the job.
+
+These numbers are from a 2-CPU machine running the load generator, the app, Postgres and Redis together, so they are a floor rather than a ceiling:
+
+| Scenario | Requests/s | p50 | p95 | p99 | DB transactions per request |
+|---|---:|---:|---:|---:|---:|
+| Redirect, cached link | 4,915 | 9.5 ms | 14.5 ms | 18.6 ms | 0.01 |
+| Redirect, unknown code | 5,785 | 7.6 ms | 12.4 ms | 19.4 ms | 0.00 |
+| Create link | 1,938 | 25.5 ms | 34.0 ms | 43.0 ms | 2.86 |
+| Click totals | 1,440 | 33.6 ms | 46.8 ms | 53.8 ms | 4.01 |
+| List links | 2,234 | 21.8 ms | 29.9 ms | 36.8 ms | 1.87 |
+| Redirect, cached link, Bloom filter off | 4,953 | 9.4 ms | 15.0 ms | 20.6 ms | 0.01 |
+| Redirect, unknown code, Bloom filter off | 4,051 | 11.8 ms | 16.1 ms | 22.5 ms | 0.99 |
+
+The Bloom filter is what keeps unknown codes away from the database: without it every made-up code costs a Postgres query (0.99 per request), with it none do, and throughput for those requests rises by about 40%. For real links it costs nothing measurable. Cached redirects need about one Postgres transaction per hundred requests, which is the worker writing clicks in batches.
+
 ## API
 
 The full reference is at `/docs`. The short version:
@@ -177,6 +195,7 @@ On Render a request passes three proxies before it reaches the app: Cloudflare, 
 ```
 npm run lint
 npm test
+npm run load      # load test, local Postgres and Redis only
 ```
 
 The tests run against a real PostgreSQL and Redis, and refuse to run against anything that is not on `localhost` (or the CI service containers), because they create and delete data. GitHub Actions runs lint, migrations and the full suite on every pull request.
@@ -188,7 +207,7 @@ Some tests start two API servers and two workers as separate processes against o
 ```
 backend/
   migrations/      SQL migrations (node-pg-migrate)
-  scripts/         migrate.js, explainStats.js (query plan benchmark, local only)
+  scripts/         migrate.js; loadTest.js and explainStats.js (local databases only)
   src/
     config/        environment, logger, Postgres pool, Redis, limits, metrics
     routes/        URL to handler wiring
