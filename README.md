@@ -170,7 +170,7 @@ Use `npm ci` rather than `npm install`, so the lockfile is not rewritten.
 
 `CODE_SECRET` must never change once links exist, so keep a copy of the generated value somewhere safe.
 
-To check `TRUST_PROXY`, set `DEBUG_CLIENT_IP=true`, open `/debug/client-ip` and compare `ip` with your real address. If it shows a proxy address, raise `TRUST_PROXY` by one and try again. Set `DEBUG_CLIENT_IP` back to `false` afterwards.
+On Render a request passes three proxies before it reaches the app: Cloudflare, Render's load balancer, and a proxy on the same machine. That is why `render.yaml` sets `TRUST_PROXY=3`. To check it on another host, set `DEBUG_CLIENT_IP=true`, open `/debug/client-ip` and compare `ip` with your real address. If it shows a proxy address, raise `TRUST_PROXY` by one and try again. Set `DEBUG_CLIENT_IP` back to `false` afterwards. Change it in `render.yaml` rather than the dashboard, because Render applies the file again on every deploy.
 
 ## Tests
 
