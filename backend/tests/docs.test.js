@@ -14,12 +14,14 @@ import linksRoutes from '../src/routes/linksRoutes.js';
 import webhooksRoutes from '../src/routes/webhooksRoutes.js';
 import redirectRoutes from '../src/routes/redirectRoutes.js';
 import debugRoutes from '../src/routes/debugRoutes.js';
+import webRoutes from '../src/routes/webRoutes.js';
 import { isReservedAlias } from '../src/utils/reservedAliases.js';
 import { MAX_BULK_LINKS } from '../src/utils/validators.js';
 
 const MOUNTS = [
   ['', healthRoutes],
   ['', metricsRoutes],
+  ['', webRoutes],
   ['', docsRoutes],
   ['', debugRoutes],
   ['/api/v1/keys', keysRoutes],
@@ -27,7 +29,7 @@ const MOUNTS = [
   ['/api/v1/webhooks', webhooksRoutes],
   ['', redirectRoutes],
 ];
-const UNDOCUMENTED = new Set(['GET /']);
+const UNDOCUMENTED = new Set(['GET /', 'GET /static/app.js', 'GET /static/style.css']);
 
 const keyIds = [];
 const codes = new Set();
@@ -149,10 +151,10 @@ describe('the documentation page', () => {
     expect(res.text).toContain('&quot;url&quot;');
   });
 
-  it('is what the site root opens', async () => {
+  it('is linked from the web page at the site root', async () => {
     const res = await request(app).get('/');
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/docs');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('href="/docs"');
   });
 
   it('cannot be shadowed by an alias', () => {

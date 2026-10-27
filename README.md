@@ -1,6 +1,6 @@
 # Kuturl
 
-Kuturl is a URL shortener API. You get an API key, create short links, and every visit to a short link is redirected, counted and turned into statistics. It is a backend project: there is no frontend beyond the API documentation at `/docs` and a few small HTML pages for people following links.
+Kuturl is a URL shortener. Paste a long URL on the home page or call the API, and every visit to the short link is redirected, counted and turned into statistics. Most of the work is in the backend; the web page is a small plain-JavaScript client of the same public API.
 
 I built it to practise the parts of backend work that only show up under real traffic: caching, rate limiting, idempotent writes, asynchronous pipelines, and making several instances of the same service behave as one.
 
@@ -8,6 +8,7 @@ Node.js 22, Express 5, PostgreSQL (Neon), Redis (Redis Cloud), Vitest, GitHub Ac
 
 ## Features
 
+- A web page at `/` to shorten links, see clicks, referrers and devices, get QR codes, and disable or delete links
 - Short links with a generated code or your own alias, optional expiry, password and click limit
 - Bulk creation of up to 100 links in one request, with a result for every item
 - Click statistics: totals, hourly and daily series, top referrers, device classes
@@ -54,6 +55,8 @@ The worker can run on its own (`npm run worker`), as many copies as needed, or i
 The worker reads the stream in batches through a consumer group. For each batch it inserts the clicks and adds them to the hourly totals in a single SQL statement, then acknowledges and deletes the events. Clicks are stored in monthly partitions and kept for 6 months. The hourly totals are kept for good.
 
 ## Design decisions
+
+**The web page is just another API client.** It has no private endpoints. On the first link it creates an API key and keeps it in the browser, so there is no sign-up; the key can be copied to another device or used from scripts. The page runs under a strict content security policy (no inline scripts), and only ever writes text into the page, never HTML.
 
 **Short codes come from a sequence, not randomness.** Each link id comes from a Postgres sequence and is passed through a keyed Feistel permutation, then written in base62. Codes are always 7 characters, never collide, and don't reveal how many links exist.
 
@@ -133,7 +136,7 @@ cd backend
 cp .env.example .env      # then fill in DATABASE_URL, DIRECT_URL, REDIS_URL and CODE_SECRET
 npm ci
 npm run migrate
-npm run dev               # the API on http://localhost:3000
+npm run dev               # the web page and API on http://localhost:3000
 npm run dev:worker        # in a second terminal: clicks and webhooks (or set RUN_WORKER=true)
 ```
 
@@ -195,6 +198,7 @@ backend/
     lua/           Redis scripts (token bucket, click counter)
     worker/        click stream consumer, webhook dispatcher
     docs/          OpenAPI document and the /docs page
+    web/           the web page at / (HTML, CSS and plain JavaScript, no build step)
   tests/           Vitest + Supertest
 ```
 

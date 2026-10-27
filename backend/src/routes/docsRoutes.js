@@ -8,8 +8,6 @@ const router = express.Router();
 const document = { ...spec, servers: [{ url: env.baseUrl }] };
 const page = renderDocs(document, { baseUrl: env.baseUrl });
 
-router.get('/', (req, res) => res.redirect(302, '/docs'));
-
 router.get('/docs', (req, res) => {
   res.set('Cache-Control', 'public, max-age=300').type('html').send(page);
 });

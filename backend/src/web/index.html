@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kuturl</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="brand" href="/">Kuturl</a>
+    <nav>
+      <a href="#key">Your key</a>
+      <a href="/docs">API docs</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <noscript><p class="notice error">This page needs JavaScript. The API works without it, see <a href="/docs">the docs</a>.</p></noscript>
+
+  <p id="status" class="notice" hidden></p>
+
+  <section>
+    <h1>Shorten a link</h1>
+    <form id="shorten" novalidate>
+      <div class="row">
+        <label class="grow">
+          <span class="label">Long URL</span>
+          <input id="url" name="url" type="url" placeholder="https://example.com/a/very/long/path" autocomplete="off" required>
+        </label>
+        <button type="submit" id="shorten-button">Shorten</button>
+      </div>
+
+      <details id="options">
+        <summary>More options</summary>
+        <div class="grid">
+          <label>
+            <span class="label">Custom alias</span>
+            <input id="alias" name="alias" type="text" placeholder="my-link" minlength="3" maxlength="32" autocomplete="off">
+            <span class="hint">3 to 32 letters, numbers, - or _</span>
+          </label>
+          <label>
+            <span class="label">Expires</span>
+            <input id="expires" name="expires" type="datetime-local">
+            <span class="hint">Your local time</span>
+          </label>
+          <label>
+            <span class="label">Password</span>
+            <input id="password" name="password" type="password" minlength="6" maxlength="128" autocomplete="new-password">
+            <span class="hint">Visitors must enter it first</span>
+          </label>
+          <label>
+            <span class="label">Click limit</span>
+            <input id="max-clicks" name="maxClicks" type="number" min="1" step="1" placeholder="No limit">
+            <span class="hint">Stops working after this many clicks</span>
+          </label>
+        </div>
+      </details>
+
+      <p id="shorten-error" class="error" hidden></p>
+    </form>
+
+    <div id="result" class="result" hidden>
+      <span class="label">Your short link</span>
+      <div class="row">
+        <a id="result-link" class="short" href="#" target="_blank" rel="noopener"></a>
+        <button type="button" id="result-copy">Copy</button>
+        <button type="button" id="result-details" class="secondary">Details</button>
+      </div>
+      <p class="muted small">Goes to <span id="result-target"></span></p>
+    </div>
+  </section>
+
+  <section id="details" hidden>
+    <div class="section-head">
+      <h2>Link <code id="d-code"></code></h2>
+      <button type="button" id="d-close" class="secondary">Close</button>
+    </div>
+    <table class="facts">
+      <tbody>
+        <tr><th>Short link</th><td><a id="d-short" href="#" target="_blank" rel="noopener"></a> <button type="button" id="d-copy" class="small-button">Copy</button></td></tr>
+        <tr><th>Goes to</th><td id="d-long" class="wrap"></td></tr>
+        <tr><th>Status</th><td id="d-status"></td></tr>
+        <tr><th>Created</th><td id="d-created"></td></tr>
+        <tr><th>Expires</th><td id="d-expires"></td></tr>
+        <tr><th>Click limit</th><td id="d-limit"></td></tr>
+        <tr><th>Password</th><td id="d-password"></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Clicks</h3>
+    <p class="muted small">New clicks show up after a few seconds. Times are UTC.</p>
+    <table class="totals">
+      <thead><tr><th>All time</th><th>Last 24 hours</th><th>Last 7 days</th><th>Last 30 days</th></tr></thead>
+      <tbody><tr><td id="d-total"></td><td id="d-24h"></td><td id="d-7d"></td><td id="d-30d"></td></tr></tbody>
+    </table>
+
+    <h4>Last 30 days</h4>
+    <div id="d-chart" class="chart"></div>
+    <div class="chart-axis"><span id="d-axis-start"></span><span id="d-axis-end"></span></div>
+
+    <div class="two">
+      <div>
+        <h4>Top referrers, last 30 days</h4>
+        <table><thead><tr><th>Site</th><th class="num">Clicks</th></tr></thead><tbody id="d-referrers"></tbody></table>
+      </div>
+      <div>
+        <h4>Devices, last 30 days</h4>
+        <table><thead><tr><th>Device</th><th class="num">Clicks</th></tr></thead><tbody id="d-devices"></tbody></table>
+      </div>
+    </div>
+
+    <h3>QR code</h3>
+    <div class="qr">
+      <img id="d-qr" alt="QR code for this link" width="192" height="192">
+      <div>
+        <p><a id="d-qr-png" href="#" download>Download PNG</a></p>
+        <p><a id="d-qr-svg" href="#" download>Download SVG</a></p>
+      </div>
+    </div>
+
+    <h3>Manage</h3>
+    <div class="row wrap-row">
+      <button type="button" id="d-toggle" class="secondary"></button>
+      <button type="button" id="d-delete" class="danger">Delete link</button>
+    </div>
+    <p id="d-error" class="error" hidden></p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Your links</h2>
+      <button type="button" id="refresh" class="secondary">Refresh</button>
+    </div>
+    <div class="scroll">
+      <table id="links">
+        <thead><tr><th>Short link</th><th>Goes to</th><th class="num">Clicks</th><th>Created</th><th>Status</th></tr></thead>
+        <tbody id="links-body"></tbody>
+      </table>
+    </div>
+    <p id="links-empty" class="muted" hidden>No links yet. Shorten one above.</p>
+    <button type="button" id="more" class="secondary" hidden>Load more</button>
+  </section>
+
+  <section id="key">
+    <h2>Your key</h2>
+    <p>Your links belong to an API key that this browser keeps. To see the same links on another device or in a script, copy the key and paste it there. Anyone with the key can manage your links, so keep it private.</p>
+    <p>Current key: <code id="key-prefix">none yet</code></p>
+    <div class="row wrap-row">
+      <button type="button" id="key-copy" class="secondary">Copy full key</button>
+      <button type="button" id="key-forget" class="secondary">Forget this key</button>
+    </div>
+    <form id="key-form" class="row" novalidate>
+      <label class="grow">
+        <span class="label">Use a different key</span>
+        <input id="key-input" type="password" placeholder="kt_..." autocomplete="off">
+      </label>
+      <button type="submit">Use key</button>
+    </form>
+    <p id="key-error" class="error" hidden></p>
+  </section>
+</main>
+
+<footer>
+  <p class="muted small">Kuturl. Short links redirect with a 302 and are counted without storing your visitors' IP addresses. <a href="/docs">API docs</a></p>
+</footer>
+</body>
+</html>
