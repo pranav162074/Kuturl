@@ -21,7 +21,7 @@ services:
       - key: REDIS_KEY_PREFIX
         value: "prod:"
       - key: TRUST_PROXY
-        value: "1"
+        value: "3"
       - key: DEBUG_CLIENT_IP
         value: "false"
       - key: DATABASE_URL
