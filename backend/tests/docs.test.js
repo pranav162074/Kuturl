@@ -13,6 +13,7 @@ import keysRoutes from '../src/routes/keysRoutes.js';
 import linksRoutes from '../src/routes/linksRoutes.js';
 import webhooksRoutes from '../src/routes/webhooksRoutes.js';
 import redirectRoutes from '../src/routes/redirectRoutes.js';
+import debugRoutes from '../src/routes/debugRoutes.js';
 import { isReservedAlias } from '../src/utils/reservedAliases.js';
 import { MAX_BULK_LINKS } from '../src/utils/validators.js';
 
@@ -20,6 +21,7 @@ const MOUNTS = [
   ['', healthRoutes],
   ['', metricsRoutes],
   ['', docsRoutes],
+  ['', debugRoutes],
   ['/api/v1/keys', keysRoutes],
   ['/api/v1/links', linksRoutes],
   ['/api/v1/webhooks', webhooksRoutes],

@@ -1,4 +1,5 @@
 import env from './env.js';
+import { channel } from './redisConnection.js';
 
 export default {
   events: ['link.click_limit_reached'],
@@ -9,6 +10,6 @@ export default {
   leaseMs: 60_000,
   idleCheckMs: 10 * 60 * 1000,
   signatureToleranceSeconds: 300,
-  nudgeChannel: 'webhooks:nudge',
+  nudgeChannel: channel('webhooks:nudge'),
   allowPrivateTargets: env.webhookAllowPrivateTargets,
 };

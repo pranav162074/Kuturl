@@ -517,6 +517,29 @@ export default {
         responses: { 200: { description: 'Prometheus text format', content: { 'text/plain': {} } }, 401: error('Wrong or missing metrics token'), 404: error('Metrics are switched off') },
       },
     },
+    '/debug/client-ip': {
+      get: {
+        tags: ['Operations'],
+        summary: 'Show the client address the app sees',
+        description: 'Off unless DEBUG_CLIENT_IP=true. Used once after deploying, to set TRUST_PROXY to the number of proxies in front of the app.',
+        responses: {
+          200: {
+            description: 'What Express made of the request',
+            content: json({
+              type: 'object',
+              properties: {
+                ip: { type: 'string' },
+                ips: { type: 'array', items: { type: 'string' } },
+                remoteAddress: { type: 'string' },
+                forwardedFor: { type: ['string', 'null'] },
+                trustProxy: { type: 'integer' },
+              },
+            }),
+          },
+          404: error('Switched off'),
+        },
+      },
+    },
     '/docs': { get: { tags: ['Operations'], summary: 'This documentation', responses: { 200: { description: 'HTML', content: { 'text/html': {} } } } } },
     '/openapi.json': { get: { tags: ['Operations'], summary: 'The OpenAPI document', responses: { 200: { description: 'OpenAPI 3.1', content: { 'application/json': {} } } } } },
   },

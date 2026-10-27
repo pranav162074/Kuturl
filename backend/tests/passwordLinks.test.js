@@ -93,7 +93,10 @@ describe('password hashing', () => {
     const stored = await hashPassword(PASSWORD);
     expect(await verifyPassword(PASSWORD, null)).toBe(false);
     expect(await verifyPassword(PASSWORD, 'plain')).toBe(false);
-    expect(await verifyPassword(PASSWORD, stored.replace(/.$/, stored.endsWith('A') ? 'B' : 'A'))).toBe(false);
+    const parts = stored.split('$');
+    const key = parts.at(-1);
+    parts[parts.length - 1] = `${key[0] === 'A' ? 'B' : 'A'}${key.slice(1)}`;
+    expect(await verifyPassword(PASSWORD, parts.join('$'))).toBe(false);
     expect(await verifyPassword(PASSWORD, stored.replace(`$${PASSWORD_PARAMS.N}$`, '$99999999$'))).toBe(false);
   });
 

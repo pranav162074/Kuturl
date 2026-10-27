@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import pinoHttp from 'pino-http';
+import env from './config/env.js';
 import logger from './config/logger.js';
 import redis from './config/redis.js';
 import { watchClickStream } from './config/metrics.js';
@@ -14,6 +15,7 @@ import keysRoutes from './routes/keysRoutes.js';
 import linksRoutes from './routes/linksRoutes.js';
 import webhooksRoutes from './routes/webhooksRoutes.js';
 import docsRoutes from './routes/docsRoutes.js';
+import debugRoutes from './routes/debugRoutes.js';
 import redirectRoutes from './routes/redirectRoutes.js';
 import rateLimit from './middleware/rateLimit.js';
 
@@ -21,7 +23,7 @@ const app = express();
 
 // Render and most hosts put a proxy in front of the app. Without this, every client
 // looks like it has the proxy's IP, which would break per-IP rate limiting later.
-app.set('trust proxy', 1);
+app.set('trust proxy', env.trustProxy);
 app.disable('x-powered-by');
 
 // Every request gets an id, returned in the X-Request-Id header and attached to every log
@@ -50,6 +52,7 @@ app.use(express.json({ limit: '300kb' }));
 app.use(healthRoutes);
 app.use(metricsRoutes);
 app.use(docsRoutes);
+app.use(debugRoutes);
 app.use('/api/v1', rateLimit('apiIp', { scope: 'ip' }));
 app.use('/api/v1/keys', keysRoutes);
 app.use('/api/v1/links', linksRoutes);
@@ -74,4 +77,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-export default app;
+export default app;
