@@ -15,4 +15,8 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
     },
   },
+  {
+    files: ['src/web/**/*.js'],
+    languageOptions: { sourceType: 'script', globals: globals.browser },
+  },
 ];

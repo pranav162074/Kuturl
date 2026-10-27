@@ -15,6 +15,7 @@ import keysRoutes from './routes/keysRoutes.js';
 import linksRoutes from './routes/linksRoutes.js';
 import webhooksRoutes from './routes/webhooksRoutes.js';
 import docsRoutes from './routes/docsRoutes.js';
+import webRoutes from './routes/webRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
 import redirectRoutes from './routes/redirectRoutes.js';
 import rateLimit from './middleware/rateLimit.js';
@@ -51,6 +52,7 @@ app.use(express.json({ limit: '300kb' }));
 
 app.use(healthRoutes);
 app.use(metricsRoutes);
+app.use(webRoutes);
 app.use(docsRoutes);
 app.use(debugRoutes);
 app.use('/api/v1', rateLimit('apiIp', { scope: 'ip' }));
