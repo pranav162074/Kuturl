@@ -1,10 +1,14 @@
 # Kuturl
 
+[![CI](https://github.com/pranav162074/Kuturl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pranav162074/Kuturl/actions/workflows/ci.yml)
+
+**Live: [kuturl.onrender.com](https://kuturl.onrender.com)** &middot; [API docs](https://kuturl.onrender.com/docs)
+
 Kuturl is a URL shortener. Paste a long URL on the home page or call the API, and every visit to the short link is redirected, counted and turned into statistics. Most of the work is in the backend; the web page is a small plain-JavaScript client of the same public API.
 
 I built it to practise the parts of backend work that only show up under real traffic: caching, rate limiting, idempotent writes, asynchronous pipelines, and making several instances of the same service behave as one.
 
-Node.js 22, Express 5, PostgreSQL (Neon), Redis (Redis Cloud), Vitest, GitHub Actions. Everything runs on free plans.
+Node.js 22, Express 5, PostgreSQL (Neon), Redis (Redis Cloud), Vitest, autocannon, GitHub Actions, Render. Everything runs on free plans, so the first visit after a quiet spell can take about a minute while the server wakes up.
 
 ## Features
 
@@ -198,7 +202,7 @@ npm test
 npm run load      # load test, local Postgres and Redis only
 ```
 
-The tests run against a real PostgreSQL and Redis, and refuse to run against anything that is not on `localhost` (or the CI service containers), because they create and delete data. GitHub Actions runs lint, migrations and the full suite on every pull request.
+The tests run against a real PostgreSQL and Redis, and refuse to run against anything that is not on `localhost` (or the CI service containers), because they create and delete data. GitHub Actions runs lint, migrations and the full suite on every pull request, then the load test. Render deploys `main` only after both pass.
 
 Some tests start two API servers and two workers as separate processes against one database and one Redis, to check that codes, rate limits, idempotency, alias races and click processing stay correct across instances.
 
